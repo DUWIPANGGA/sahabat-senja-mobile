@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "870089588237",
+    "project_id": "senja-6f44a",
+    "storage_bucket": "senja-6f44a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:870089588237:android:8f6b8a8dab8d7848d21f44",
+        "android_client_info": {
+          "package_name": "com.example.sahabatsenja_app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "870089588237-ju5s3f3vfg5u3q5qmvpp8u1l0p2f49d0.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBySvUxz5QPqVx1liPMe4BwPHPebTIULW0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "870089588237-ju5s3f3vfg5u3q5qmvpp8u1l0p2f49d0.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
