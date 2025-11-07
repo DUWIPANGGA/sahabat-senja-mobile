@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:sahabatsenja_app/screens/perawat/home_perawat_screen.dart';
+import 'package:sahabatsenja_app/halaman/perawat/home_perawat_screen.dart';
 import 'main_app.dart';
 import 'register_screen.dart';
 
@@ -73,10 +73,12 @@ class _LoginScreenState extends State<LoginScreen> {
       if (mounted) {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => const MainApp()),
+          MaterialPageRoute(
+              builder: (_) => const MainApp(
+                    namaKeluarga: '',
+                  )),
         );
       }
-
     } on FirebaseAuthException catch (e) {
       String msg = 'Terjadi kesalahan saat login';
       if (e.code == 'user-not-found') msg = 'Email tidak ditemukan';
@@ -112,7 +114,10 @@ class _LoginScreenState extends State<LoginScreen> {
       if (userCredential.user != null && mounted) {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => const MainApp()),
+          MaterialPageRoute(
+              builder: (_) => const MainApp(
+                    namaKeluarga: '',
+                  )),
         );
       }
     } catch (e) {
@@ -143,7 +148,9 @@ class _LoginScreenState extends State<LoginScreen> {
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Batal')),
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Batal')),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: mainColor),
             onPressed: _handleForgotPassword,
@@ -176,7 +183,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
   // ✅ Navigasi ke Register
   void _navigateToRegister() {
-    Navigator.push(context, MaterialPageRoute(builder: (_) => const RegisterScreen()));
+    Navigator.push(
+        context, MaterialPageRoute(builder: (_) => const RegisterScreen()));
   }
 
   // ✅ Utilitas UI
@@ -192,14 +200,18 @@ class _LoginScreenState extends State<LoginScreen> {
       builder: (_) => AlertDialog(
         title: Text(title),
         content: Text(message),
-        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))],
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context), child: const Text('OK'))
+        ],
       ),
     );
   }
 
   String? _emailValidator(String? value) {
     if (value == null || value.isEmpty) return 'Email harus diisi';
-    if (!value.contains('@') || !value.contains('.')) return 'Format email tidak valid';
+    if (!value.contains('@') || !value.contains('.'))
+      return 'Format email tidak valid';
     return null;
   }
 
@@ -262,12 +274,16 @@ class _LoginScreenState extends State<LoginScreen> {
                           onPressed: _navigateToRegister,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: mainColor,
-                            padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 30, vertical: 12),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10)),
                           ),
                           child: const Text(
                             'PENDAFTARAN',
-                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold),
                           ),
                         ),
                       ],
@@ -275,29 +291,31 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
               ),
-
               const SizedBox(height: 30),
-              Image.asset('assets/images/logo_login.png', width: 130, height: 130),
+              Image.asset('assets/images/logo_login.png',
+                  width: 130, height: 130),
               const SizedBox(height: 12),
-              const Text('Sahabat Senja', style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
-
+              const Text('Sahabat Senja',
+                  style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
               const SizedBox(height: 35),
-
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Form(
                   key: _formKey,
                   child: Column(
                     children: [
-                      _buildTextField('Email', _emailController, false, _emailValidator),
+                      _buildTextField(
+                          'Email', _emailController, false, _emailValidator),
                       const SizedBox(height: 20),
-                      _buildTextField('Kata Sandi', _passwordController, true, _passwordValidator),
+                      _buildTextField('Kata Sandi', _passwordController, true,
+                          _passwordValidator),
                       const SizedBox(height: 12),
                       Align(
                         alignment: Alignment.centerRight,
                         child: GestureDetector(
                           onTap: _showForgotPasswordDialog,
-                          child: Text('Lupa Kata Sandi?', style: TextStyle(color: mainColor)),
+                          child: Text('Lupa Kata Sandi?',
+                              style: TextStyle(color: mainColor)),
                         ),
                       ),
                       const SizedBox(height: 30),
@@ -308,22 +326,31 @@ class _LoginScreenState extends State<LoginScreen> {
                               child: ElevatedButton(
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: mainColor,
-                                  padding: const EdgeInsets.symmetric(vertical: 16),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 16),
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12)),
                                 ),
                                 onPressed: _handleEmailLogin,
-                                child: const Text('Masuk', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                                child: const Text('Masuk',
+                                    style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600)),
                               ),
                             ),
                       const SizedBox(height: 24),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Text('Belum punya akun?', style: TextStyle(color: Colors.grey)),
+                          const Text('Belum punya akun?',
+                              style: TextStyle(color: Colors.grey)),
                           const SizedBox(width: 8),
                           GestureDetector(
                             onTap: _navigateToRegister,
-                            child: Text('Daftar di sini', style: TextStyle(color: mainColor, fontWeight: FontWeight.w500)),
+                            child: Text('Daftar di sini',
+                                style: TextStyle(
+                                    color: mainColor,
+                                    fontWeight: FontWeight.w500)),
                           ),
                         ],
                       ),
@@ -331,7 +358,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       Row(
                         children: [
                           Expanded(child: Divider(color: Colors.grey[300])),
-                          const Padding(padding: EdgeInsets.symmetric(horizontal: 16), child: Text('atau')),
+                          const Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 16),
+                              child: Text('atau')),
                           Expanded(child: Divider(color: Colors.grey[300])),
                         ],
                       ),
@@ -341,13 +370,15 @@ class _LoginScreenState extends State<LoginScreen> {
                           backgroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           side: BorderSide(color: Colors.grey[300]!),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
                         ),
                         onPressed: _handleGoogleLogin,
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Image.asset('assets/images/google.png', width: 24, height: 24),
+                            Image.asset('assets/images/google.png',
+                                width: 24, height: 24),
                             const SizedBox(width: 12),
                             const Text('Masuk dengan Google'),
                           ],
@@ -365,8 +396,8 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _buildTextField(String label, TextEditingController controller, bool isPassword,
-      String? Function(String?)? validator) {
+  Widget _buildTextField(String label, TextEditingController controller,
+      bool isPassword, String? Function(String?)? validator) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -380,8 +411,11 @@ class _LoginScreenState extends State<LoginScreen> {
             hintText: 'Masukkan $label',
             suffixIcon: isPassword
                 ? IconButton(
-                    icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility),
-                    onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                    icon: Icon(_obscurePassword
+                        ? Icons.visibility_off
+                        : Icons.visibility),
+                    onPressed: () =>
+                        setState(() => _obscurePassword = !_obscurePassword),
                   )
                 : null,
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -406,7 +440,8 @@ class BottomCurveClipper extends CustomClipper<Path> {
   Path getClip(Size size) {
     final path = Path();
     path.lineTo(0, size.height - 40);
-    path.quadraticBezierTo(size.width / 2, size.height, size.width, size.height - 40);
+    path.quadraticBezierTo(
+        size.width / 2, size.height, size.width, size.height - 40);
     path.lineTo(size.width, 0);
     path.close();
     return path;

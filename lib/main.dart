@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:sahabatsenja_app/screens/splash_screen.dart';
+import 'package:sahabatsenja_app/halaman/splash_screen.dart';
 import 'firebase_options.dart';
-import 'screens/login_screen.dart';
-import 'splash_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -34,7 +32,7 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
       ),
       // Ganti ini ke SplashScreen() kalau kamu pakai splash dulu sebelum login
-      home: const SplashScreen(), 
+      home: const SplashScreen(),
     );
   }
 }

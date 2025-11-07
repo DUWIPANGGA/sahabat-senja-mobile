@@ -4,7 +4,6 @@ import 'data_lansia_screen.dart';
 import 'kondisi_lansia_screen.dart';
 import 'jadwal_aktivitas_screen.dart';
 import 'jadwal_obat_screen.dart';
-import 'laporan_harian_screen.dart';
 import 'tracking_obat_screen.dart';
 import 'chat_detail_screen.dart';
 
@@ -24,37 +23,13 @@ class _HomePerawatScreenState extends State<HomePerawatScreen> {
     });
   }
 
-  void _logout(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Konfirmasi Logout'),
-        content: const Text('Apakah kamu yakin ingin keluar?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Batal'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF9C6223)),
-            onPressed: () {
-              Navigator.pop(context);
-              Navigator.pop(context);
-            },
-            child: const Text('Keluar'),
-          ),
-        ],
-      ),
-    );
-  }
-
   void _showEmergencyDialog(BuildContext context) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('🚨 Darurat!'),
         content: const Text(
-          'Apakah kamu ingin mengirim peringatan ke keluarga lansia? '
+          'Apakah kamu ingin mengirim peringatan ke keluarga lansia?\n'
           'Gunakan fitur ini hanya jika lansia dalam kondisi gawat.',
         ),
         actions: [
@@ -82,31 +57,38 @@ class _HomePerawatScreenState extends State<HomePerawatScreen> {
     final screens = [
       _buildDashboard(),
       _buildChatScreen(),
-      const ProfileScreen(),
+      const ProfileScreen(showAppBar: false), // AppBar dihapus di sini
+    ];
+
+    final titles = [
+      'Dashboard Perawat',
+      'Chat Keluarga',
+      'Profil Perawat',
     ];
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Dashboard Perawat'),
         backgroundColor: const Color(0xFF9C6223),
+        title: Text(
+          titles[_selectedIndex],
+          style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+        ),
+        centerTitle: true,
         elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.warning_amber_rounded, color: Colors.redAccent),
-            tooltip: 'Darurat',
-            onPressed: () => _showEmergencyDialog(context),
-          ),
-          IconButton(
-            icon: const Icon(Icons.notifications),
-            tooltip: 'Notifikasi',
-            onPressed: () {},
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: 'Logout',
-            onPressed: () => _logout(context),
-          ),
-        ],
+        actions: _selectedIndex == 0
+            ? [
+                IconButton(
+                  icon: const Icon(Icons.warning_amber_rounded, color: Colors.redAccent),
+                  tooltip: 'Darurat',
+                  onPressed: () => _showEmergencyDialog(context),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.notifications, color: Colors.white),
+                  tooltip: 'Notifikasi',
+                  onPressed: () {},
+                ),
+              ]
+            : [],
       ),
       body: screens[_selectedIndex],
       bottomNavigationBar: BottomNavigationBar(
@@ -140,7 +122,11 @@ class _HomePerawatScreenState extends State<HomePerawatScreen> {
               children: [
                 Text(
                   'Halo, Perawat!',
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
                 ),
                 SizedBox(height: 8),
                 Text(
@@ -158,40 +144,49 @@ class _HomePerawatScreenState extends State<HomePerawatScreen> {
               mainAxisSpacing: 16,
               children: [
                 _buildMenuCard(
-                  icon: Icons.elderly, 
-                  title: 'Data Lansia', 
+                  icon: Icons.elderly,
+                  title: 'Data Lansia',
                   color: Colors.teal,
-                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const DataLansiaScreen())),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const DataLansiaScreen()),
+                  ),
                 ),
                 _buildMenuCard(
-                  icon: Icons.favorite, 
-                  title: 'Kondisi Lansia', 
+                  icon: Icons.favorite,
+                  title: 'Kondisi Lansia',
                   color: Colors.pink,
-                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const KondisiLansiaScreen())),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const KondisiLansiaScreen()),
+                  ),
                 ),
                 _buildMenuCard(
-                  icon: Icons.event_note, 
-                  title: 'Jadwal Aktivitas', 
+                  icon: Icons.event_note,
+                  title: 'Jadwal Aktivitas',
                   color: Colors.orange,
-                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const JadwalAktivitasScreen())),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const JadwalAktivitasScreen()),
+                  ),
                 ),
                 _buildMenuCard(
-                  icon: Icons.local_hospital, 
-                  title: 'Jadwal Obat', 
+                  icon: Icons.local_hospital,
+                  title: 'Jadwal Obat',
                   color: Colors.purple,
-                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const JadwalObatScreen())),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const JadwalObatScreen()),
+                  ),
                 ),
                 _buildMenuCard(
-                  icon: Icons.assignment, 
-                  title: 'Laporan Harian', 
-                  color: Colors.blue,
-                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const LaporanHarianScreen())),
-                ),
-                _buildMenuCard(
-                  icon: Icons.medication, 
-                  title: 'Tracking Obat', 
+                  icon: Icons.medication,
+                  title: 'Tracking Obat',
                   color: Colors.green,
-                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const TrackingObatScreen())),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const TrackingObatScreen()),
+                  ),
                 ),
               ],
             ),
@@ -241,7 +236,12 @@ class _HomePerawatScreenState extends State<HomePerawatScreen> {
                     ],
                   ),
                   trailing: Text(keluarga['time']!, style: const TextStyle(color: Colors.grey)),
-                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => ChatDetailScreen(namaKeluarga: keluarga['nama']!))),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ChatDetailScreen(namaKeluarga: keluarga['nama']!),
+                    ),
+                  ),
                 ),
               );
             },
@@ -251,7 +251,12 @@ class _HomePerawatScreenState extends State<HomePerawatScreen> {
     );
   }
 
-  Widget _buildMenuCard({required IconData icon, required String title, required Color color, required VoidCallback onTap}) {
+  Widget _buildMenuCard({
+    required IconData icon,
+    required String title,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
     return Card(
       elevation: 4,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),

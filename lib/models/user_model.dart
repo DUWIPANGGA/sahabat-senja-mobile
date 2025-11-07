@@ -1,35 +1,18 @@
-class UserModel {
+// models/user_model.dart
+class User {
   final String uid;
   final String email;
-  final String role;
-  final String displayName;
-  final String photoURL;
+  final String nama;
+  final String nomorTelepon;
+  final String role; // 'keluarga' atau 'perawat'
+  final DateTime createdAt;
 
-  UserModel({
+  User({
     required this.uid,
     required this.email,
+    required this.nama,
+    required this.nomorTelepon,
     required this.role,
-    this.displayName = '',
-    this.photoURL = '',
+    required this.createdAt,
   });
-
-  Map<String, dynamic> toMap() {
-    return {
-      'uid': uid,
-      'email': email,
-      'role': role,
-      'displayName': displayName,
-      'photoURL': photoURL,
-    };
-  }
-
-  factory UserModel.fromMap(Map<String, dynamic> map) {
-    return UserModel(
-      uid: map['uid'] ?? '',
-      email: map['email'] ?? '',
-      role: map['role'] ?? 'keluarga', // default ke keluarga
-      displayName: map['displayName'] ?? '',
-      photoURL: map['photoURL'] ?? '',
-    );
-  }
 }

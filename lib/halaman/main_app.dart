@@ -1,12 +1,13 @@
-
 import 'package:flutter/material.dart';
-import 'keluarga/home_screen.dart';
-import 'keluarga/activity_screen.dart';
-import 'keluarga/consultation_screen.dart';
-import 'keluarga/profile_screen.dart';
+import '../halaman/keluarga/home_screen.dart';
+import '../halaman/keluarga/activity_screen.dart';
+import '../halaman/keluarga/consultation_screen.dart';
+import '../halaman/keluarga/profile_screen.dart';
 
 class MainApp extends StatefulWidget {
-  const MainApp({super.key});
+  final String namaKeluarga; // Tambahkan parameter
+
+  const MainApp({super.key, required this.namaKeluarga});
 
   @override
   State<MainApp> createState() => _MainAppState();
@@ -15,12 +16,19 @@ class MainApp extends StatefulWidget {
 class _MainAppState extends State<MainApp> {
   int _currentIndex = 0;
 
-  final List<Widget> _screens = [
-    const HomeScreen(),
-    const ActivityScreen(),
-    const ConsultationScreen(),
-    const ProfileScreen(),
-  ];
+  late final List<Widget> _screens; // Gunakan late final
+
+  @override
+  void initState() {
+    super.initState();
+    // Inisialisasi screens di initState agar bisa menggunakan widget.namaKeluarga
+    _screens = [
+      HomeScreen(namaKeluarga: widget.namaKeluarga), // Berikan parameter
+      const ActivityScreen(),
+      const ConsultationScreen(),
+      const ProfileScreen(),
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -52,7 +60,7 @@ class _MainAppState extends State<MainApp> {
             label: 'Profil',
           ),
         ],
-        selectedItemColor: Colors.brown,
+        selectedItemColor: const Color(0xFF9C6223), // Warna coklat app
         unselectedItemColor: Colors.grey,
       ),
     );
