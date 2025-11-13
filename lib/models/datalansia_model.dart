@@ -83,6 +83,8 @@ class Datalansia {
     );
   }
 
+  get nama => null;
+
   Datalansia copyWith({
     int? id,
     String? noKamarLansia,

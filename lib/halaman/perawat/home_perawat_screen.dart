@@ -16,36 +16,52 @@ class HomePerawatScreen extends StatefulWidget {
 
 class _HomePerawatScreenState extends State<HomePerawatScreen> {
   int _selectedIndex = 0;
+  bool _isRefreshing = false;
+
+  /// 🔄 Fungsi untuk refresh halaman
+  Future<void> _refreshContent() async {
+    setState(() => _isRefreshing = true);
+    await Future.delayed(const Duration(seconds: 1)); // simulasi loading data
+    setState(() => _isRefreshing = false);
+  }
 
   void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
+    setState(() => _selectedIndex = index);
   }
 
   void _showEmergencyDialog(BuildContext context) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('🚨 Darurat!'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text(
+          '🚨 Darurat!',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         content: const Text(
-          'Apakah kamu ingin mengirim peringatan ke keluarga lansia?\n'
-          'Gunakan fitur ini hanya jika lansia dalam kondisi gawat.',
+          'Apakah kamu ingin mengirim peringatan ke keluarga lansia?\nGunakan fitur ini hanya jika lansia dalam kondisi gawat.',
+          style: TextStyle(height: 1.4),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('Batal'),
           ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
             onPressed: () {
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Peringatan darurat telah dikirim ke keluarga!')),
+                const SnackBar(
+                    content: Text('🚨 Peringatan darurat telah dikirim ke keluarga!')),
               );
             },
-            child: const Text('Kirim'),
+            icon: const Icon(Icons.send),
+            label: const Text('Kirim'),
           ),
         ],
       ),
@@ -57,16 +73,13 @@ class _HomePerawatScreenState extends State<HomePerawatScreen> {
     final screens = [
       _buildDashboard(),
       _buildChatScreen(),
-      const ProfileScreen(showAppBar: false), // AppBar dihapus di sini
+      const ProfileScreen(showAppBar: false),
     ];
 
-    final titles = [
-      'Dashboard Perawat',
-      'Chat Keluarga',
-      'Profil Perawat',
-    ];
+    final titles = ['Dashboard Perawat', 'Chat Keluarga', 'Profil Perawat'];
 
     return Scaffold(
+      backgroundColor: Colors.grey[100],
       appBar: AppBar(
         backgroundColor: const Color(0xFF9C6223),
         title: Text(
@@ -74,7 +87,7 @@ class _HomePerawatScreenState extends State<HomePerawatScreen> {
           style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
         ),
         centerTitle: true,
-        elevation: 0,
+        elevation: 4,
         actions: _selectedIndex == 0
             ? [
                 IconButton(
@@ -90,112 +103,161 @@ class _HomePerawatScreenState extends State<HomePerawatScreen> {
               ]
             : [],
       ),
-      body: screens[_selectedIndex],
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedIndex,
-        onTap: _onItemTapped,
-        selectedItemColor: const Color(0xFF9C6223),
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'Dashboard'),
-          BottomNavigationBarItem(icon: Icon(Icons.chat), label: 'Chat'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profil'),
-        ],
+      body: _isRefreshing
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFF9C6223)))
+          : screens[_selectedIndex],
+      bottomNavigationBar: NavigationBarTheme(
+        data: NavigationBarThemeData(
+          backgroundColor: Colors.white,
+          indicatorColor: const Color(0xFF9C6223).withOpacity(0.15),
+          labelTextStyle: MaterialStateProperty.all(
+            const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+          ),
+        ),
+        child: NavigationBar(
+          selectedIndex: _selectedIndex,
+          onDestinationSelected: _onItemTapped,
+          destinations: const [
+            NavigationDestination(icon: Icon(Icons.dashboard_outlined), label: 'Dashboard'),
+            NavigationDestination(icon: Icon(Icons.chat_outlined), label: 'Chat'),
+            NavigationDestination(icon: Icon(Icons.person_outline), label: 'Profil'),
+          ],
+        ),
       ),
     );
   }
 
+  /// 🧩 DASHBOARD
   Widget _buildDashboard() {
-    return Padding(
+  return RefreshIndicator(
+    onRefresh: _refreshContent,
+    color: const Color(0xFF9C6223),
+    child: ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: const Color(0xFF9C6223),
-              borderRadius: BorderRadius.circular(12),
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF9C6223), Color(0xFFD6A15E)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
-            child: const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Halo, Perawat!',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-                SizedBox(height: 8),
-                Text(
-                  'Pantau kondisi lansia dengan penuh perhatian dan kasih 💛',
-                  style: TextStyle(fontSize: 16, color: Colors.white70),
-                ),
-              ],
-            ),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.brown.withOpacity(0.3),
+                blurRadius: 8,
+                offset: const Offset(0, 4),
+              )
+            ],
           ),
-          const SizedBox(height: 25),
-          Expanded(
-            child: GridView.count(
-              crossAxisCount: 2,
-              crossAxisSpacing: 16,
-              mainAxisSpacing: 16,
-              children: [
-                _buildMenuCard(
-                  icon: Icons.elderly,
-                  title: 'Data Lansia',
-                  color: Colors.teal,
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const DataLansiaScreen()),
-                  ),
-                ),
-                _buildMenuCard(
-                  icon: Icons.favorite,
-                  title: 'Kondisi Lansia',
-                  color: Colors.pink,
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const KondisiLansiaScreen()),
-                  ),
-                ),
-                _buildMenuCard(
-                  icon: Icons.event_note,
-                  title: 'Jadwal Aktivitas',
-                  color: Colors.orange,
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const JadwalAktivitasScreen()),
-                  ),
-                ),
-                _buildMenuCard(
-                  icon: Icons.local_hospital,
-                  title: 'Jadwal Obat',
-                  color: Colors.purple,
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const JadwalObatScreen()),
-                  ),
-                ),
-                _buildMenuCard(
-                  icon: Icons.medication,
-                  title: 'Tracking Obat',
-                  color: Colors.green,
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const TrackingObatScreen()),
-                  ),
-                ),
-              ],
-            ),
+          child: const Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Selamat Datang, Perawat 👋',
+                style: TextStyle(
+                    fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
+              ),
+              SizedBox(height: 8),
+              Text(
+                'Pantau kondisi lansia dengan penuh perhatian dan kasih 💛',
+                style: TextStyle(fontSize: 15, color: Colors.white70),
+              ),
+            ],
           ),
-        ],
+        ),
+        const SizedBox(height: 28),
+
+        // 🔸 Menu Items (vertikal)
+        _buildMenuItem(Icons.elderly, 'Data Lansia', Colors.teal, const DataLansiaScreen()),
+        _buildMenuItem(Icons.favorite, 'Kondisi Lansia', Colors.pink, const KondisiLansiaScreen()),
+        _buildMenuItem(Icons.event_note, 'Jadwal Aktivitas', Colors.orange, const JadwalAktivitasScreen()),
+        _buildMenuItem(Icons.local_hospital, 'Jadwal Obat', Colors.purple, const JadwalObatScreen()),
+        _buildMenuItem(Icons.medication, 'Tracking Obat', Colors.green, const TrackingObatScreen()),
+      ],
+    ),
+  );
+}
+
+Widget _buildMenuItem(IconData icon, String title, Color color, Widget page) {
+  return Padding(
+    padding: const EdgeInsets.only(bottom: 14),
+    child: InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => page)),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: color.withOpacity(0.1),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            )
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: color, size: 30),
+            ),
+            const SizedBox(width: 18),
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(
+                    fontWeight: FontWeight.w600, fontSize: 16, color: Colors.black87),
+              ),
+            ),
+            const Icon(Icons.arrow_forward_ios, color: Colors.grey, size: 18),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+  Widget _buildMenuCard(IconData icon, String title, Color color, Widget page) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => page)),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(color: color.withOpacity(0.15), blurRadius: 8, offset: const Offset(0, 4))
+          ],
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 45, color: color),
+            const SizedBox(height: 12),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+            ),
+          ],
+        ),
       ),
     );
   }
 
+  /// 💬 CHAT SCREEN
   Widget _buildChatScreen() {
     final keluargaList = [
       {'nama': 'Keluarga Ibu Rusi', 'relation': 'Anak', 'lastMessage': 'Terima kasih infonya bu...', 'time': '10:30'},
@@ -203,72 +265,58 @@ class _HomePerawatScreenState extends State<HomePerawatScreen> {
       {'nama': 'Keluarga Ibu Siti', 'relation': 'Menantu', 'lastMessage': 'Obat sudah sampai?', 'time': 'Kemarin'},
     ];
 
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(16),
-          child: TextField(
-            decoration: InputDecoration(
-              hintText: 'Cari keluarga...',
-              prefixIcon: const Icon(Icons.search),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+    return RefreshIndicator(
+      onRefresh: _refreshContent,
+      color: const Color(0xFF9C6223),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          children: [
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 5, offset: const Offset(0, 3))
+                ],
+              ),
+              child: TextField(
+                decoration: InputDecoration(
+                  hintText: 'Cari keluarga...',
+                  prefixIcon: const Icon(Icons.search),
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.all(12),
+                ),
+              ),
             ),
-          ),
-        ),
-        Expanded(
-          child: ListView.builder(
-            itemCount: keluargaList.length,
-            itemBuilder: (context, index) {
-              final keluarga = keluargaList[index];
-              return Card(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                child: ListTile(
-                  leading: const CircleAvatar(
-                    backgroundColor: Color(0xFF9C6223),
-                    child: Icon(Icons.person, color: Colors.white),
-                  ),
-                  title: Text(keluarga['nama']!),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(keluarga['relation']!),
-                      Text(keluarga['lastMessage']!, style: const TextStyle(color: Colors.grey)),
-                    ],
-                  ),
-                  trailing: Text(keluarga['time']!, style: const TextStyle(color: Colors.grey)),
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => ChatDetailScreen(namaKeluarga: keluarga['nama']!),
-                    ),
+            const SizedBox(height: 16),
+            ...keluargaList.map((keluarga) => Card(
+              elevation: 2,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              child: ListTile(
+                leading: const CircleAvatar(
+                  radius: 24,
+                  backgroundColor: Color(0xFF9C6223),
+                  child: Icon(Icons.person, color: Colors.white),
+                ),
+                title: Text(keluarga['nama']!, style: const TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: Text(
+                  '${keluarga['relation']} • ${keluarga['lastMessage']}',
+                  style: const TextStyle(color: Colors.black54),
+                ),
+                trailing: Text(
+                  keluarga['time']!,
+                  style: const TextStyle(color: Colors.grey, fontSize: 12),
+                ),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ChatDetailScreen(namaKeluarga: keluarga['nama']!),
                   ),
                 ),
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildMenuCard({
-    required IconData icon,
-    required String title,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onTap,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 45, color: color),
-            const SizedBox(height: 10),
-            Text(title, textAlign: TextAlign.center, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+              ),
+            )),
           ],
         ),
       ),

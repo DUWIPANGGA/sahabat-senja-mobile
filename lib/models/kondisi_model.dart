@@ -22,17 +22,18 @@ class KondisiHarian {
   });
 
   Map<String, dynamic> toJson() {
-    return {
-      'id_lansia': idLansia,
-      'tekanan_darah': tekananDarah,
-      'nadi': nadi,
-      'nafsu_makan': nafsuMakan,
-      'status_obat': statusObat,
-      'catatan': catatan ?? '',
-      'status': status,
-      'tanggal': tanggal.toIso8601String(),
-    };
-  }
+  return {
+    'id_lansia': idLansia,
+    'tekanan_darah': tekananDarah,
+    'nadi': nadi.toString(), // ✅ ubah ke string
+    'nafsu_makan': nafsuMakan,
+    'status_obat': statusObat,
+    'catatan': catatan ?? '',
+    'status': status,
+    // ubah format tanggal agar cocok dengan validasi Laravel
+    'tanggal': '${tanggal.year}-${tanggal.month.toString().padLeft(2, '0')}-${tanggal.day.toString().padLeft(2, '0')}',
+  };
+}
 
   factory KondisiHarian.fromJson(Map<String, dynamic> json) {
     return KondisiHarian(

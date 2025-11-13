@@ -24,19 +24,18 @@ class _KondisiLansiaScreenState extends State<KondisiLansiaScreen> {
   }
 
   Future<void> _loadKondisi() async {
-    setState(() => isLoading = true);
-    try {
-      // Ganti ID sesuai lansia yang ingin diambil (sementara contoh 1)
-      final data = await _kondisiService.fetchRiwayatById(1);
-      setState(() {
-        semuaKondisi = data;
-      });
-    } catch (e) {
-      print('⚠️ Error load kondisi: $e');
-    } finally {
-      setState(() => isLoading = false);
-    }
+  setState(() => isLoading = true);
+  try {
+    final data = await _kondisiService.fetchAllKondisi(); // <-- pakai method baru
+    setState(() {
+      semuaKondisi = data;
+    });
+  } catch (e) {
+    print('⚠️ Error load kondisi: $e');
+  } finally {
+    setState(() => isLoading = false);
   }
+}
 
   List<KondisiHarian> get filteredLansia {
     List<KondisiHarian> data = semuaKondisi;
