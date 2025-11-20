@@ -4,7 +4,7 @@ import 'package:sahabatsenja_app/models/jadwal_aktivitas_model.dart';
 
 
 class JadwalService {
-  final String baseUrl = 'http://10.0.162.77:8000/api'; // sesuaikan IP / domain
+  final String baseUrl = 'http://10.0.166.37:8000/api'; // sesuaikan IP / domain
 
   // 🔹 Fetch semua jadwal
   Future<List<JadwalAktivitas>> fetchJadwal() async {

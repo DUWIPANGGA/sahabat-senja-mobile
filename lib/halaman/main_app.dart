@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import '../halaman/keluarga/home_screen.dart';
-import 'keluarga/jadwal_keluarga_screen.dart';
-import '../halaman/keluarga/consultation_screen.dart';
-import '../halaman/keluarga/profile_screen.dart';
+import 'package:sahabatsenja_app/halaman/keluarga/chat_keluarga_screen.dart';
+import 'package:sahabatsenja_app/halaman/keluarga/home_screen.dart';
+import 'package:sahabatsenja_app/halaman/keluarga/jadwal_keluarga_screen.dart';
+import 'package:sahabatsenja_app/halaman/keluarga/profile_screen.dart';
 
 class MainApp extends StatefulWidget {
-  final String namaKeluarga; // Tambahkan parameter
+  final String namaKeluarga; // diteruskan dari login / shared prefs
 
   const MainApp({super.key, required this.namaKeluarga});
 
@@ -15,17 +15,22 @@ class MainApp extends StatefulWidget {
 
 class _MainAppState extends State<MainApp> {
   int _currentIndex = 0;
-
-  late final List<Widget> _screens; // Gunakan late final
+  late final List<Widget> _screens;
 
   @override
   void initState() {
     super.initState();
-    // Inisialisasi screens di initState agar bisa menggunakan widget.namaKeluarga
+
+    // NOTE: datalansiaId dan namaPerawat hanya contoh. Ganti dengan data real.
     _screens = [
-      HomeScreen(namaKeluarga: widget.namaKeluarga), // Berikan parameter
+      HomeScreen(namaKeluarga: widget.namaKeluarga),
       const JadwalKeluargaScreen(),
-      const ConsultationScreen(),
+      // Contoh: datalansiaId = 1, namaPerawat = 'Perawat A' — ganti sesuai data nyata
+      ChatKeluargaScreen(
+        datalansiaId: 1,
+        namaPerawat: 'Perawat A',
+        namaKeluarga: widget.namaKeluarga,
+      ),
       const ProfileScreen(),
     ];
   }
@@ -36,31 +41,15 @@ class _MainAppState extends State<MainApp> {
       body: _screens[_currentIndex],
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
-        onTap: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
-        },
+        onTap: (index) => setState(() => _currentIndex = index),
         type: BottomNavigationBarType.fixed,
         items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.calendar_today),
-            label: 'Aktivitas',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.chat),
-            label: 'Konsultasi',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Profil',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+          BottomNavigationBarItem(icon: Icon(Icons.calendar_today), label: 'Aktivitas'),
+          BottomNavigationBarItem(icon: Icon(Icons.chat), label: 'Konsultasi'),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profil'),
         ],
-        selectedItemColor: const Color(0xFF9C6223), // Warna coklat app
+        selectedItemColor: const Color(0xFF9C6223),
         unselectedItemColor: Colors.grey,
       ),
     );

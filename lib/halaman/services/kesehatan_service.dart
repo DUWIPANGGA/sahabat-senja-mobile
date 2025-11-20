@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class KesehatanService {
-  final String baseUrl = 'http://10.0.162.77:8000/api';
+  final String baseUrl = 'http://10.0.166.37:8000/api';
 
   /// Ambil data kondisi berdasarkan ID keluarga
   Future<List<dynamic>> getKondisiByKeluarga(int idKeluarga) async {

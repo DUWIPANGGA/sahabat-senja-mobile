@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:sahabatsenja_app/models/kondisi_model.dart';
 
 class KondisiService {
-  final String baseUrl = 'http://10.0.162.77:8000/api'; // Sesuaikan IP
+  final String baseUrl = 'http://10.0.166.37:8000/api'; // Sesuaikan IP
 
   // 🔹 Tambah data kondisi lansia
   Future<bool> addKondisi(KondisiHarian kondisi) async {

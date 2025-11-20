@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:sahabatsenja_app/models/datalansia_model.dart';
 
 class DatalansiaService {
-  static const String baseUrl = 'http://10.0.162.77:8000/api'; // Ganti IP sesuai Laravel kamu
+  static const String baseUrl = 'http://10.0.166.37:8000/api'; // Ganti IP sesuai Laravel kamu
 
   // 🔹 Get all data
   static Future<List<Datalansia>> getDatalansia() async {

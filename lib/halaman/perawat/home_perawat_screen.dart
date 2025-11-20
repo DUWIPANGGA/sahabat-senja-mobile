@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:sahabatsenja_app/halaman/perawat/pilih_lansia_jadwal_obat_screen.dart';
+import 'package:sahabatsenja_app/halaman/services/chat_service.dart';
 import 'profile_screen.dart';
 import 'data_lansia_screen.dart';
 import 'kondisi_lansia_screen.dart';
 import 'jadwal_perawat_screen.dart';
 import 'jadwal_obat_screen.dart';
 import 'tracking_obat_screen.dart';
-import 'chat_detail_screen.dart';
+import 'chat_perawat_screen.dart';
 
 class HomePerawatScreen extends StatefulWidget {
   const HomePerawatScreen({super.key});
@@ -18,20 +20,16 @@ class _HomePerawatScreenState extends State<HomePerawatScreen> {
   int _selectedIndex = 0;
   bool _isRefreshing = false;
 
-  // Data user - nanti bisa diambil dari Firebase, SharedPreferences, atau provider
-  String _userName = "Bahdanov Semi"; // Ganti dengan data dinamis
-  String _userRole = "Perawat Senior"; // Ganti dengan data dinamis
+  String _userName = "Bahdanov Semi";
+  String _userRole = "Perawat Senior";
 
-  /// 🔄 Fungsi untuk refresh halaman
   Future<void> _refreshContent() async {
     setState(() => _isRefreshing = true);
     await Future.delayed(const Duration(seconds: 1));
     setState(() => _isRefreshing = false);
   }
 
-  void _onItemTapped(int index) {
-    setState(() => _selectedIndex = index);
-  }
+  void _onItemTapped(int index) => setState(() => _selectedIndex = index);
 
   void _showEmergencyDialog(BuildContext context) {
     showDialog(
@@ -55,13 +53,16 @@ class _HomePerawatScreenState extends State<HomePerawatScreen> {
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.redAccent,
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
             ),
             onPressed: () {
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                    content: Text('🚨 Peringatan darurat telah dikirim ke keluarga!')),
+                  content:
+                      Text('🚨 Peringatan darurat telah dikirim ke keluarga!'),
+                ),
               );
             },
             icon: const Icon(Icons.send),
@@ -84,69 +85,58 @@ class _HomePerawatScreenState extends State<HomePerawatScreen> {
       backgroundColor: Colors.grey[50],
       appBar: _buildAppBar(),
       body: _isRefreshing
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF9C6223)))
+          ? const Center(
+              child: CircularProgressIndicator(color: Color(0xFF9C6223)),
+            )
           : screens[_selectedIndex],
       bottomNavigationBar: _buildBottomNavigationBar(),
     );
   }
 
-  AppBar _buildAppBar() {
-    return AppBar(
-      backgroundColor: const Color(0xFF9C6223),
-      elevation: 0,
-      automaticallyImplyLeading: false,
-      title: const Text(
-        'Sahabat Senja',
-        style: TextStyle(
-          fontWeight: FontWeight.bold,
-          color: Colors.white,
-          fontSize: 20,
+  AppBar _buildAppBar() => AppBar(
+        backgroundColor: const Color(0xFF9C6223),
+        elevation: 0,
+        automaticallyImplyLeading: false,
+        title: const Text(
+          'Sahabat Senja',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+            fontSize: 20,
+          ),
         ),
-      ),
-      centerTitle: true,
-      actions: [
-        IconButton(
-          icon: const Icon(Icons.warning_amber_rounded, color: Colors.redAccent),
-          tooltip: 'Darurat',
-          onPressed: () => _showEmergencyDialog(context),
-        ),
-        IconButton(
-          icon: const Icon(Icons.notifications, color: Colors.white),
-          tooltip: 'Notifikasi',
-          onPressed: () {},
-        ),
-      ],
-    );
-  }
+        centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.warning_amber_rounded,
+                color: Colors.redAccent),
+            tooltip: 'Darurat',
+            onPressed: () => _showEmergencyDialog(context),
+          ),
+          IconButton(
+            icon: const Icon(Icons.notifications, color: Colors.white),
+            tooltip: 'Notifikasi',
+            onPressed: () {},
+          ),
+        ],
+      );
 
-  BottomNavigationBar _buildBottomNavigationBar() {
-    return BottomNavigationBar(
-      currentIndex: _selectedIndex,
-      onTap: _onItemTapped,
-      type: BottomNavigationBarType.fixed,
-      backgroundColor: Colors.white,
-      selectedItemColor: const Color(0xFF9C6223),
-      unselectedItemColor: Colors.grey[600],
-      selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600),
-      items: const [
-        BottomNavigationBarItem(
-          icon: Icon(Icons.home),
-          label: 'Home',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.chat),
-          label: 'Konsultasi',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.person),
-          label: 'Profil',
-        ),
-      ],
-    );
-  }
+  BottomNavigationBar _buildBottomNavigationBar() => BottomNavigationBar(
+        currentIndex: _selectedIndex,
+        onTap: _onItemTapped,
+        type: BottomNavigationBarType.fixed,
+        backgroundColor: Colors.white,
+        selectedItemColor: const Color(0xFF9C6223),
+        unselectedItemColor: Colors.grey[600],
+        selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600),
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+          BottomNavigationBarItem(icon: Icon(Icons.chat), label: 'Konsultasi'),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profil'),
+        ],
+      );
 
-  /// 🏠 DASHBOARD / HOME SCREEN
-  Widget _buildDashboard() {
+   Widget _buildDashboard() {
     return RefreshIndicator(
       onRefresh: _refreshContent,
       color: const Color(0xFF9C6223),
@@ -299,7 +289,7 @@ class _HomePerawatScreenState extends State<HomePerawatScreen> {
                               child: _buildMenuItem(
                                 Icons.local_hospital,
                                 'Jadwal Obat',
-                                const JadwalObatScreen(),
+                                const PilihLansiaJadwalObatScreen(),
                               ),
                             ),
                           ],
@@ -396,161 +386,93 @@ class _HomePerawatScreenState extends State<HomePerawatScreen> {
     );
   }
 
-  /// 💬 KONSULTASI / CHAT SCREEN
+  /// ==========================================
+  /// CHAT SCREEN PERAWAT → LIST KELUARGA
+  /// ==========================================
   Widget _buildChatScreen() {
-    final keluargaList = [
-      {
-        'nama': 'Keluarga Ibu Rusi',
-        'relation': 'Anak',
-        'lastMessage': 'Terima kasih infonya bu...',
-        'time': '10:30'
-      },
-      {
-        'nama': 'Keluarga Pak Budi', 
-        'relation': 'Cucu',
-        'lastMessage': 'Besok saya jenguk...', 
-        'time': '09:15'
-      },
-      {
-        'nama': 'Keluarga Ibu Siti',
-        'relation': 'Menantu',
-        'lastMessage': 'Obat sudah sampai?',
-        'time': 'Kemarin'
-      },
-      {
-        'nama': 'Keluarga Bapak Joko',
-        'relation': 'Anak',
-        'lastMessage': 'Kondisi ayah bagaimana?',
-        'time': '08:45'
-      },
-      {
-        'nama': 'Keluarga Ibu Maryam',
-        'relation': 'Cucu',
-        'lastMessage': 'Terima kasih untuk laporannya',
-        'time': 'Kemarin'
-      },
-    ];
-
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
         title: const Text(
           'Konsultasi',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: Colors.black87,
-          ),
+          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black87),
         ),
         backgroundColor: Colors.white,
         elevation: 0,
         centerTitle: true,
       ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // SEARCH BAR
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 5,
-                      offset: const Offset(0, 3),
-                    )
-                  ],
-                ),
-                child: TextField(
-                  decoration: InputDecoration(
-                    hintText: 'Cari keluarga...',
-                    prefixIcon: const Icon(Icons.search, color: Colors.grey),
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.all(16),
-                  ),
-                ),
-              ),
-            ),
+      body: FutureBuilder(
+        future: ChatService().getListChatPerawat(1), // ganti perawat_id
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
 
-            // CHAT LIST
-            Expanded(
-              child: RefreshIndicator(
-                onRefresh: _refreshContent,
-                color: const Color(0xFF9C6223),
-                child: ListView.builder(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: keluargaList.length,
-                  itemBuilder: (context, index) {
-                    final keluarga = keluargaList[index];
-                    return Card(
-                      elevation: 2,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+          if (!snapshot.hasData || snapshot.data!.isEmpty) {
+            return const Center(
+              child: Text(
+                "Belum ada chat.",
+                style: TextStyle(fontSize: 16, color: Colors.grey),
+              ),
+            );
+          }
+
+          final keluargaList = snapshot.data!;
+
+          return ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: keluargaList.length,
+            itemBuilder: (context, index) {
+              final item = keluargaList[index];
+
+              return Card(
+                elevation: 2,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                margin: const EdgeInsets.only(bottom: 12),
+                child: ListTile(
+                  contentPadding: const EdgeInsets.all(12),
+                  leading: CircleAvatar(
+                    radius: 24,
+                    backgroundColor: const Color(0xFF9C6223),
+                    child: Text(
+                      item["nama_keluarga"][0],
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
                       ),
-                      margin: const EdgeInsets.only(bottom: 12),
-                      child: ListTile(
-                        contentPadding: const EdgeInsets.all(12),
-                        leading: CircleAvatar(
-                          radius: 24,
-                          backgroundColor: const Color(0xFF9C6223),
-                          child: Text(
-                            keluarga['nama']!.split(' ').last[0],
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        title: Text(
-                          keluarga['nama']!,
-                          style: const TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                        subtitle: Text(
-                          '${keluarga['relation']} • ${keluarga['lastMessage']}',
-                          style: const TextStyle(color: Colors.black54),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        trailing: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              keluarga['time']!,
-                              style: const TextStyle(
-                                color: Colors.grey,
-                                fontSize: 12,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            if (index == 0) // Hanya untuk chat terbaru
-                              Container(
-                                width: 8,
-                                height: 8,
-                                decoration: const BoxDecoration(
-                                  color: Colors.green,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                          ],
-                        ),
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) =>
-                                ChatDetailScreen(namaKeluarga: keluarga['nama']!),
-                          ),
+                    ),
+                  ),
+                  title: Text(
+                    item["nama_keluarga"],
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: Text(
+                    "${item["relation"]} • ${item["last_message"]}",
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  trailing: Text(
+                    item["time"],
+                    style: const TextStyle(color: Colors.grey, fontSize: 12),
+                  ),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ChatPerawatScreen(
+                          datalansiaId: item["datalansia_id"],
+                          namaKeluarga: item["nama_keluarga"],
                         ),
                       ),
                     );
                   },
                 ),
-              ),
-            ),
-          ],
-        ),
+              );
+            },
+          );
+        },
       ),
     );
   }

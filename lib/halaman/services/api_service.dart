@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class ApiService {
-  static const String baseUrl = 'http://10.0.162.77:8000/api';
+  static const String baseUrl = 'http://10.0.166.37:8000/api';
 
   // 🔹 Header request (tanpa Authorization)
   Map<String, String> _getHeaders() {
