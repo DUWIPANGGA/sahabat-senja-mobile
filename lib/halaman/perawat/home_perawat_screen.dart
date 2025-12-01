@@ -1,6 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:sahabatsenja_app/halaman/perawat/list_chat_perawat_screen.dart';
 import 'package:sahabatsenja_app/halaman/perawat/pilih_lansia_jadwal_obat_screen.dart';
-import 'package:sahabatsenja_app/halaman/services/chat_service.dart';
+import 'package:sahabatsenja_app/providers/chat_provider.dart';
 import 'profile_screen.dart';
 import 'data_lansia_screen.dart';
 import 'kondisi_lansia_screen.dart';
@@ -16,12 +20,17 @@ class HomePerawatScreen extends StatefulWidget {
   State<HomePerawatScreen> createState() => _HomePerawatScreenState();
 }
 
-class _HomePerawatScreenState extends State<HomePerawatScreen> with SingleTickerProviderStateMixin {
+class _HomePerawatScreenState extends State<HomePerawatScreen> 
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   int _selectedIndex = 0;
   bool _isRefreshing = false;
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
   late Animation<double> _fadeAnimation;
+  
+  // Tambahkan ini untuk polling
+  Timer? _appPollingTimer;
+  int _unreadCount = 0;
 
   String _userName = "Bahdanov Semi";
   String _userRole = "Perawat Senior";
@@ -29,6 +38,8 @@ class _HomePerawatScreenState extends State<HomePerawatScreen> with SingleTicker
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 800),
@@ -49,11 +60,60 @@ class _HomePerawatScreenState extends State<HomePerawatScreen> with SingleTicker
     );
     
     _animationController.forward();
+    
+    // Start polling untuk unread count
+    _startPollingUnreadCount();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // App kembali aktif, refresh data
+      _refreshUnreadCount();
+    } else if (state == AppLifecycleState.paused) {
+      // App di background, stop polling
+      _stopPolling();
+    }
+  }
+
+  void _startPollingUnreadCount() {
+    if (_appPollingTimer != null) return;
+    
+    _appPollingTimer = Timer.periodic(const Duration(seconds: 15), (timer) async {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      
+      await _refreshUnreadCount();
+    });
+  }
+
+  Future<void> _refreshUnreadCount() async {
+    try {
+      final chatProvider = Provider.of<ChatProvider>(
+        context,
+        listen: false,
+      );
+      await chatProvider.loadUnreadCounts();
+      setState(() {
+        _unreadCount = chatProvider.totalUnreadCount;
+      });
+    } catch (e) {
+      print('Error polling unread count: $e');
+    }
+  }
+
+  void _stopPolling() {
+    _appPollingTimer?.cancel();
+    _appPollingTimer = null;
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _animationController.dispose();
+    _stopPolling();
     super.dispose();
   }
 
@@ -127,7 +187,7 @@ class _HomePerawatScreenState extends State<HomePerawatScreen> with SingleTicker
   Widget build(BuildContext context) {
     final screens = [
       _buildDashboard(),
-      _buildChatScreen(),
+      ListChatPerawatScreen(perawatId: 1), // Ganti dengan ID perawat yang sesungguhnya
       const ProfileScreen(showAppBar: false),
     ];
 
@@ -178,20 +238,60 @@ class _HomePerawatScreenState extends State<HomePerawatScreen> with SingleTicker
           Tooltip(
             message: 'Notifikasi',
             child: IconButton(
-              icon: Badge(
-                backgroundColor: Colors.redAccent,
-                smallSize: 8,
-                child: const Icon(Icons.notifications, color: Colors.white),
-              ),
-              onPressed: () {},
+              icon: _buildNotificationBadge(),
+              onPressed: () {
+                // Navigate ke chat screen atau notifikasi screen
+                setState(() {
+                  _selectedIndex = 1; // Navigate ke chat tab
+                });
+              },
             ),
           ),
         ],
       );
 
+  Widget _buildNotificationBadge() {
+    return Stack(
+      children: [
+        const Icon(Icons.notifications, color: Colors.white),
+        if (_unreadCount > 0)
+          Positioned(
+            right: 0,
+            top: 0,
+            child: Container(
+              padding: const EdgeInsets.all(2),
+              decoration: BoxDecoration(
+                color: Colors.redAccent,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              constraints: const BoxConstraints(
+                minWidth: 16,
+                minHeight: 16,
+              ),
+              child: Text(
+                _unreadCount > 99 ? '99+' : _unreadCount.toString(),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
   BottomNavigationBar _buildBottomNavigationBar() => BottomNavigationBar(
         currentIndex: _selectedIndex,
-        onTap: _onItemTapped,
+        onTap: (index) {
+          if (index == 1) {
+            // Refresh chat ketika masuk ke tab chat
+            _refreshChatData();
+          }
+          _onItemTapped(index);
+        },
         type: BottomNavigationBarType.fixed,
         backgroundColor: Colors.white,
         selectedItemColor: const Color(0xFF9C6223),
@@ -199,24 +299,48 @@ class _HomePerawatScreenState extends State<HomePerawatScreen> with SingleTicker
         selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
         unselectedLabelStyle: const TextStyle(fontSize: 12),
         elevation: 8,
-        items: const [
+        items: [
           BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            activeIcon: Icon(Icons.home),
+            icon: const Icon(Icons.home_outlined),
+            activeIcon: const Icon(Icons.home),
             label: 'Home',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.chat_outlined),
-            activeIcon: Icon(Icons.chat),
+            icon: Badge(
+              smallSize: 8,
+              isLabelVisible: _unreadCount > 0,
+              child: const Icon(Icons.chat_outlined),
+            ),
+            activeIcon: Badge(
+              smallSize: 8,
+              isLabelVisible: _unreadCount > 0,
+              child: const Icon(Icons.chat),
+            ),
             label: 'Konsultasi',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            activeIcon: Icon(Icons.person),
+            icon: const Icon(Icons.person_outline),
+            activeIcon: const Icon(Icons.person),
             label: 'Profil',
           ),
         ],
       );
+
+  Future<void> _refreshChatData() async {
+    try {
+      final chatProvider = Provider.of<ChatProvider>(
+        context,
+        listen: false,
+      );
+      await chatProvider.loadConversations();
+      // Update unread count
+      setState(() {
+        _unreadCount = chatProvider.totalUnreadCount;
+      });
+    } catch (e) {
+      print('Error refreshing chat data: $e');
+    }
+  }
 
   Widget _buildDashboard() {
     return RefreshIndicator(
@@ -407,6 +531,15 @@ class _HomePerawatScreenState extends State<HomePerawatScreen> with SingleTicker
 
                   const SizedBox(height: 30),
                   
+                  // STATISTIK CHAT
+                  Consumer<ChatProvider>(
+                    builder: (context, chatProvider, child) {
+                      return _buildChatStatistics(chatProvider);
+                    },
+                  ),
+
+                  const SizedBox(height: 30),
+                  
                   // QUOTE INSPIRASI
                   FadeTransition(
                     opacity: _fadeAnimation,
@@ -464,6 +597,158 @@ class _HomePerawatScreenState extends State<HomePerawatScreen> with SingleTicker
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildChatStatistics(ChatProvider chatProvider) {
+    final conversations = chatProvider.conversations;
+    final totalConversations = conversations.length;
+    final unreadConversations = conversations.where((c) => c.unreadCount > 0).length;
+    
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 500),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+        border: Border.all(color: const Color(0xFF9C6223).withOpacity(0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF9C6223).withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.chat_bubble,
+                  color: Color(0xFF9C6223),
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Text(
+                'Statistik Konsultasi',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildStatItem(
+                Icons.group,
+                'Total Percakapan',
+                totalConversations.toString(),
+                const Color(0xFF9C6223),
+              ),
+              _buildStatItem(
+                Icons.mark_email_unread,
+                'Belum Dibaca',
+                unreadConversations.toString(),
+                Colors.redAccent,
+              ),
+              _buildStatItem(
+                Icons.timer,
+                'Aktif Hari Ini',
+                '${conversations.length}',
+                Colors.green,
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (unreadConversations > 0)
+            GestureDetector(
+              onTap: () {
+                setState(() {
+                  _selectedIndex = 1; // Navigate ke chat tab
+                });
+              },
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF9C6223).withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFF9C6223).withOpacity(0.2)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.message,
+                      color: Color(0xFF9C6223),
+                      size: 16,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '$unreadConversations pesan belum dibaca',
+                      style: const TextStyle(
+                        color: Color(0xFF9C6223),
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Icon(
+                      Icons.arrow_forward_ios,
+                      color: Color(0xFF9C6223),
+                      size: 12,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatItem(IconData icon, String title, String value, Color color) {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, color: color, size: 24),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 12,
+            color: Colors.grey,
+          ),
+          textAlign: TextAlign.center,
+        ),
+      ],
     );
   }
 
@@ -577,130 +862,4 @@ class _HomePerawatScreenState extends State<HomePerawatScreen> with SingleTicker
       ),
     );
   }
-
-  /// ==========================================
-  /// CHAT SCREEN PERAWAT → LIST KELUARGA
-  /// ==========================================
-  Widget _buildChatScreen() {
-    return Scaffold(
-      backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        title: const Text(
-          'Konsultasi',
-          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black87, fontSize: 20),
-        ),
-        backgroundColor: Colors.white,
-        elevation: 1,
-        centerTitle: true,
-        // Garis pemisah di AppBar chat juga
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(1.0),
-          child: Container(
-            height: 1.0,
-            color: Colors.grey[300],
-          ),
-        ),
-      ),
-      body: FutureBuilder(
-        future: ChatService().getListChatPerawat(1),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: CircularProgressIndicator(color: Color(0xFF9C6223)),
-            );
-          }
-
-          if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.chat_outlined,
-                    size: 80,
-                    color: Colors.grey[400],
-                  ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    "Belum ada percakapan",
-                    style: TextStyle(fontSize: 16, color: Colors.grey),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    "Mulai konsultasi dengan keluarga lansia",
-                    style: TextStyle(fontSize: 14, color: Colors.grey[500]),
-                  ),
-                ],
-              ),
-            );
-          }
-
-          final keluargaList = snapshot.data!;
-
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: keluargaList.length,
-            itemBuilder: (context, index) {
-              final item = keluargaList[index];
-
-              return AnimatedContainer(
-                duration: Duration(milliseconds: 300 + (index * 100)),
-                curve: Curves.easeOutBack,
-                margin: const EdgeInsets.only(bottom: 12),
-                child: Card(
-                  elevation: 2,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.all(16),
-                    leading: CircleAvatar(
-                      radius: 26,
-                      backgroundColor: const Color(0xFF9C6223),
-                      child: Text(
-                        item["nama_keluarga"][0],
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ),
-                    title: Text(
-                      item["nama_keluarga"],
-                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
-                    ),
-                    subtitle: Text(
-                      "${item["relation"]} • ${item["last_message"]}",
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: Colors.grey[600]),
-                    ),
-                    trailing: Text(
-                      item["time"],
-                      style: TextStyle(color: Colors.grey[500], fontSize: 12),
-                    ),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => ChatPerawatScreen(
-                            datalansiaId: item["datalansia_id"],
-                            namaKeluarga: item["nama_keluarga"],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              );
-            },
-          );
-        },
-      ),
-    );
-  }
 }
-
-
-

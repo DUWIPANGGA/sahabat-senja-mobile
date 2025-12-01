@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sahabatsenja_app/models/datalansia_model.dart';
-import 'package:sahabatsenja_app/services/datalansia_service.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import '../../services/datalansia_service.dart';
 
 class BiodataLansiaScreen extends StatefulWidget {
   const BiodataLansiaScreen({super.key});
@@ -13,8 +12,6 @@ class BiodataLansiaScreen extends StatefulWidget {
 class _BiodataLansiaScreenState extends State<BiodataLansiaScreen> {
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
-  String? _userEmail;
-  String? _userName;
 
   final TextEditingController _namaController = TextEditingController();
   final TextEditingController _tempatLahirController = TextEditingController();
@@ -24,31 +21,14 @@ class _BiodataLansiaScreenState extends State<BiodataLansiaScreen> {
   final TextEditingController _riwayatController = TextEditingController();
   final TextEditingController _alergiController = TextEditingController();
   final TextEditingController _obatController = TextEditingController();
+  final TextEditingController _namaAnakController = TextEditingController();
   final TextEditingController _alamatController = TextEditingController();
   final TextEditingController _noHpController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
 
   DateTime? _selectedDate;
   String? _jenisKelamin;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadUserData();
-  }
-
-  Future<void> _loadUserData() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      _userEmail = prefs.getString('user_email');
-      _userName = prefs.getString('user_name');
-      
-      print('👤 User data loaded:');
-      print('  Email: $_userEmail');
-      print('  Name: $_userName');
-    } catch (e) {
-      print('❌ Error loading user data: $e');
-    }
-  }
+final datalansiaService = DatalansiaService();
 
   void _calculateAge() {
     if (_selectedDate != null) {
@@ -67,11 +47,7 @@ class _BiodataLansiaScreenState extends State<BiodataLansiaScreen> {
       setState(() => _isLoading = true);
       
       try {
-        if (_userEmail == null) {
-          throw Exception('User email tidak ditemukan. Silakan login ulang.');
-        }
-
-        // Buat objek Datalansia dengan data dari form
+        // Buat objek Datalansia
         final datalansia = Datalansia(
           namaLansia: _namaController.text,
           tanggalLahirLansia:
@@ -83,18 +59,17 @@ class _BiodataLansiaScreenState extends State<BiodataLansiaScreen> {
           riwayatPenyakitLansia: _riwayatController.text,
           alergiLansia: _alergiController.text,
           obatRutinLansia: _obatController.text,
+          namaAnak: _namaAnakController.text,
           alamatLengkap: _alamatController.text,
-          // Data keluarga diambil dari user yang login
-          namaAnak: _userName ?? 'Tidak diketahui',
-          noHpAnak: _noHpController.text, // Bisa kosong atau tambahkan field
-          emailAnak: _userEmail!, // User email sebagai default
+          noHpAnak: _noHpController.text,
+          emailAnak: _emailController.text,
         );
 
         print('📤 Data yang akan dikirim:');
         print(datalansia.toJson());
 
         // Panggil service untuk create data
-        final created = await DatalansiaService().createDatalansia(datalansia);
+final created = await datalansiaService.createDatalansia(datalansia);
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -165,56 +140,6 @@ class _BiodataLansiaScreenState extends State<BiodataLansiaScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // 🔹 User Info Card
-                    if (_userEmail != null || _userName != null)
-                      Container(
-                        margin: const EdgeInsets.only(bottom: 16),
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.blue[50],
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.blue.shade100),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.person, color: Colors.blue, size: 24),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  if (_userName != null)
-                                    Text(
-                                      _userName!,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                  if (_userEmail != null)
-                                    Text(
-                                      _userEmail!,
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  const SizedBox(height: 4),
-                                  const Text(
-                                    'Data lansia akan terhubung dengan akun Anda',
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      color: Colors.grey,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
                     // Header Section
                     _buildHeaderSection(),
                     const SizedBox(height: 24),
@@ -249,47 +174,26 @@ class _BiodataLansiaScreenState extends State<BiodataLansiaScreen> {
                     
                     _buildExpandableTextField(_alergiController, 'Alergi', Icons.warning_outlined),
                     const SizedBox(height: 16),
-
-                    _buildTextField(_noHpController, 'Nomor HP Anak', Icons.phone_outlined,
-                      keyboardType: TextInputType.phone),
-                    const SizedBox(height: 16),
                     
                     _buildExpandableTextField(_obatController, 'Obat Rutin', Icons.medication_outlined),
                     const SizedBox(height: 24),
 
-                    // Data Keluarga Section (Info only - tidak bisa diubah)
+                    // Data Keluarga Section
                     _buildSectionHeader('Data Keluarga Penanggung Jawab'),
                     const SizedBox(height: 16),
                     
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[50],
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.grey.shade200),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildReadOnlyField('Nama Penanggung Jawab', _userName ?? 'Belum terdeteksi'),
-                          const SizedBox(height: 12),
-                          _buildReadOnlyField('Email Penanggung Jawab', _userEmail ?? 'Belum terdeteksi'),
-                          const SizedBox(height: 12),
-                          Text(
-                            '📌 Data keluarga diambil otomatis dari akun Anda',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey,
-                              fontStyle: FontStyle.italic,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    
+                    _buildTextField(_namaAnakController, 'Nama Anak / Penanggung Jawab', Icons.people_outlined),
                     const SizedBox(height: 16),
                     
-                    _buildExpandableTextField(_alamatController, 'Alamat Tempat Tinggal Lansia', Icons.home_outlined),
+                    _buildExpandableTextField(_alamatController, 'Alamat Lengkap', Icons.home_outlined),
+                    const SizedBox(height: 16),
+                    
+                    _buildTextField(_noHpController, 'Nomor HP Anak', Icons.phone_outlined,
+                      keyboardType: TextInputType.phone),
+                    const SizedBox(height: 16),
+                    
+                    _buildTextField(_emailController, 'Email Anak', Icons.email_outlined,
+                      keyboardType: TextInputType.emailAddress),
                     const SizedBox(height: 30),
 
                     // Submit Button
@@ -327,7 +231,7 @@ class _BiodataLansiaScreenState extends State<BiodataLansiaScreen> {
           colors: [
             const Color(0xFF9C6223).withOpacity(0.1),
             const Color(0xFF9C6223).withOpacity(0.05),
-        ],
+          ],
         ),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFF9C6223).withOpacity(0.2)),
@@ -348,7 +252,7 @@ class _BiodataLansiaScreenState extends State<BiodataLansiaScreen> {
               const SizedBox(width: 12),
               const Expanded(
                 child: Text(
-                  'Tambah Data Lansia',
+                  'Isi Biodata Lansia',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -360,7 +264,7 @@ class _BiodataLansiaScreenState extends State<BiodataLansiaScreen> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Data lansia akan otomatis terhubung dengan akun Anda sebagai penanggung jawab',
+            'Lengkapi data lansia dengan informasi yang akurat untuk pemantauan kesehatan yang lebih baik',
             style: TextStyle(
               fontSize: 14,
               color: Colors.grey,
@@ -423,37 +327,6 @@ class _BiodataLansiaScreenState extends State<BiodataLansiaScreen> {
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       ),
       validator: (value) => (value == null || value.isEmpty) ? '$label wajib diisi' : null,
-    );
-  }
-
-  Widget _buildReadOnlyField(String label, String value) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 12,
-            color: Colors.grey,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.grey.shade300),
-          ),
-          child: Text(
-            value,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ),
-      ],
     );
   }
 
@@ -642,9 +515,10 @@ class _BiodataLansiaScreenState extends State<BiodataLansiaScreen> {
     _riwayatController.dispose();
     _alergiController.dispose();
     _obatController.dispose();
-        _noHpController.dispose();
-
+    _namaAnakController.dispose();
     _alamatController.dispose();
+    _noHpController.dispose();
+    _emailController.dispose();
     super.dispose();
   }
 }

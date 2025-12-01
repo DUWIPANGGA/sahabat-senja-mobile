@@ -1,38 +1,38 @@
-// screens/chat/list_chat_perawat_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:sahabatsenja_app/halaman/chat/chat_screen.dart';
-import 'package:sahabatsenja_app/models/chat_model.dart';
 import 'package:sahabatsenja_app/providers/chat_provider.dart';
-import 'package:sahabatsenja_app/services/auth_service.dart';
+class ChatListKeluargaScreen extends StatefulWidget {
+  final int userId;
+  final String namaKeluarga;
 
-class ListChatPerawatScreen extends StatefulWidget {
-  final int perawatId;
-
-  const ListChatPerawatScreen({super.key, required this.perawatId});
+  const ChatListKeluargaScreen({
+    super.key,
+    required this.userId,
+    required this.namaKeluarga,
+  });
 
   @override
-  State<ListChatPerawatScreen> createState() => _ListChatPerawatScreenState();
+  State<ChatListKeluargaScreen> createState() => _ChatListKeluargaScreenState();
 }
 
-class _ListChatPerawatScreenState extends State<ListChatPerawatScreen> {
-  final AuthService _authService = AuthService();
+class _ChatListKeluargaScreenState extends State<ChatListKeluargaScreen> {
   late ChatProvider _chatProvider;
-  
+
   @override
   void initState() {
     super.initState();
     _chatProvider = Provider.of<ChatProvider>(context, listen: false);
     _loadConversations();
     
-    // Polling setiap 10 detik untuk update real-time
+    // Polling setiap 10 detik
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Future.doWhile(() async {
         await Future.delayed(const Duration(seconds: 10));
         if (mounted) {
           await _loadConversations();
         }
-        return mounted; // Continue polling while screen is mounted
+        return mounted;
       });
     });
   }
@@ -56,8 +56,12 @@ class _ListChatPerawatScreenState extends State<ListChatPerawatScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Daftar Chat Keluarga"),
-        backgroundColor: Colors.teal,
+        title: const Text(
+          'Konsultasi dengan Perawat',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        backgroundColor: const Color(0xFF9C6223),
+        elevation: 0,
         actions: [
           Consumer<ChatProvider>(
             builder: (context, provider, child) {
@@ -81,7 +85,9 @@ class _ListChatPerawatScreenState extends State<ListChatPerawatScreen> {
       body: Consumer<ChatProvider>(
         builder: (context, provider, child) {
           if (provider.isLoading && provider.conversations.isEmpty) {
-            return const Center(child: CircularProgressIndicator());
+            return const Center(
+              child: CircularProgressIndicator(color: Color(0xFF9C6223)),
+            );
           }
 
           if (provider.error != null && provider.conversations.isEmpty) {
@@ -94,11 +100,13 @@ class _ListChatPerawatScreenState extends State<ListChatPerawatScreen> {
                   Text(
                     'Error: ${provider.error}',
                     textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.red),
                   ),
                   const SizedBox(height: 16),
                   ElevatedButton(
                     onPressed: _loadConversations,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF9C6223),
+                    ),
                     child: const Text('Coba Lagi'),
                   ),
                 ],
@@ -106,84 +114,98 @@ class _ListChatPerawatScreenState extends State<ListChatPerawatScreen> {
             );
           }
 
-          if (provider.conversations.isEmpty) {
+          // Filter conversations untuk keluarga (hanya perawat)
+          final perawatConversations = provider.conversations.where((conv) {
+            return conv.user['role'] == 'perawat';
+          }).toList();
+
+          if (perawatConversations.isEmpty) {
             return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
-                    Icons.chat_bubble_outline,
+                    Icons.medical_services,
                     size: 80,
-                    color: Colors.teal[200],
+                    color: Colors.grey[400],
                   ),
                   const SizedBox(height: 16),
                   const Text(
                     'Belum ada percakapan',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    'Mulai percakapan dengan keluarga',
+                    'Mulai konsultasi dengan perawat',
                     style: TextStyle(color: Colors.grey),
+                  ),
+                  const SizedBox(height: 20),
+                  ElevatedButton.icon(
+                    onPressed: _startNewChat,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF9C6223),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
+                    ),
+                    icon: const Icon(Icons.add),
+                    label: const Text('Mulai Chat Baru'),
                   ),
                 ],
               ),
             );
           }
 
-          // Filter conversations untuk perawat (hanya keluarga)
-          final keluargaConversations = provider.conversations.where((conv) {
-            return conv.user['role'] == 'keluarga';
-          }).toList();
-
           return RefreshIndicator(
             onRefresh: _loadConversations,
+            color: const Color(0xFF9C6223),
             child: ListView.builder(
-              itemCount: keluargaConversations.length,
+              padding: const EdgeInsets.all(12),
+              itemCount: perawatConversations.length,
               itemBuilder: (context, index) {
-                final conversation = keluargaConversations[index];
+                final conversation = perawatConversations[index];
                 final user = conversation.user;
                 final lastMessage = conversation.lastMessage;
                 
                 return Card(
-                  margin: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
                   elevation: 2,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                   child: ListTile(
+                    contentPadding: const EdgeInsets.all(16),
                     leading: CircleAvatar(
-                      backgroundColor: Colors.teal[100],
+                      radius: 24,
+                      backgroundColor: const Color(0xFF9C6223).withOpacity(0.1),
                       child: Icon(
-                        Icons.person,
-                        color: Colors.teal[800],
+                        Icons.medical_services,
+                        color: const Color(0xFF9C6223),
                       ),
                     ),
                     title: Text(
-                      user['name'] ?? 'Keluarga',
+                      user['name'] ?? 'Perawat',
                       style: TextStyle(
                         fontWeight: conversation.unreadCount > 0
                             ? FontWeight.bold
                             : FontWeight.normal,
+                        color: conversation.unreadCount > 0
+                            ? const Color(0xFF9C6223)
+                            : Colors.black87,
                       ),
                     ),
                     subtitle: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        if (lastMessage != null)
+                        if (lastMessage != null && lastMessage['message'] != null)
                           Text(
                             lastMessage['message'] ?? '',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              fontWeight: conversation.unreadCount > 0
-                                  ? FontWeight.w600
-                                  : FontWeight.normal,
                               color: conversation.unreadCount > 0
-                                  ? Colors.teal[800]
+                                  ? const Color(0xFF9C6223)
                                   : Colors.grey[700],
                             ),
                           ),
@@ -200,7 +222,7 @@ class _ListChatPerawatScreenState extends State<ListChatPerawatScreen> {
                     trailing: conversation.unreadCount > 0
                         ? Badge(
                             label: Text(conversation.unreadCount.toString()),
-                            backgroundColor: Colors.teal,
+                            backgroundColor: const Color(0xFF9C6223),
                           )
                         : null,
                     onTap: () {
@@ -209,13 +231,13 @@ class _ListChatPerawatScreenState extends State<ListChatPerawatScreen> {
                         MaterialPageRoute(
                           builder: (_) => ChatScreen(
                             userId: user['id'],
-                            userName: user['name'] ?? 'Keluarga',
+                            userName: user['name'] ?? 'Perawat',
                           ),
                         ),
                       );
                     },
                     onLongPress: () {
-                      _showConversationOptions(context, user['id']);
+                      _showConversationOptions(user['id'], user['name']);
                     },
                   ),
                 );
@@ -225,16 +247,59 @@ class _ListChatPerawatScreenState extends State<ListChatPerawatScreen> {
         },
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          _searchAndStartChat(context);
-        },
-        backgroundColor: Colors.teal,
+        onPressed: _startNewChat,
+        backgroundColor: const Color(0xFF9C6223),
         child: const Icon(Icons.chat, color: Colors.white),
       ),
     );
   }
 
-  void _showConversationOptions(BuildContext context, int userId) {
+  void _startNewChat() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Mulai Chat Baru'),
+        content: const Text('Pilih perawat yang ingin diajak chat'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _searchPerawat();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF9C6223),
+            ),
+            child: const Text('Cari Perawat'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _searchPerawat() {
+    showSearch(
+      context: context,
+      delegate: _PerawatSearchDelegate(
+        onPerawatSelected: (perawat) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ChatScreen(
+                userId: perawat['id'],
+                userName: perawat['name'] ?? 'Perawat',
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  void _showConversationOptions(int userId, String perawatName) {
     showModalBottomSheet(
       context: context,
       builder: (context) {
@@ -247,11 +312,11 @@ class _ListChatPerawatScreenState extends State<ListChatPerawatScreen> {
                 title: const Text('Hapus Percakapan'),
                 onTap: () {
                   Navigator.pop(context);
-                  _confirmDeleteConversation(userId);
+                  _confirmDeleteConversation(userId, perawatName);
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.block, color: Colors.orange),
+                leading: const Icon(Icons.mark_email_read, color: Colors.blue),
                 title: const Text('Tandai Semua Dibaca'),
                 onTap: () {
                   Navigator.pop(context);
@@ -265,12 +330,12 @@ class _ListChatPerawatScreenState extends State<ListChatPerawatScreen> {
     );
   }
 
-  void _confirmDeleteConversation(int userId) {
+  void _confirmDeleteConversation(int userId, String perawatName) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Hapus Percakapan'),
-        content: const Text('Apakah Anda yakin ingin menghapus percakapan ini?'),
+        content: Text('Hapus percakapan dengan $perawatName?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -336,31 +401,12 @@ class _ListChatPerawatScreenState extends State<ListChatPerawatScreen> {
       }
     }
   }
-
-  void _searchAndStartChat(BuildContext context) {
-    showSearch(
-      context: context,
-      delegate: _ChatSearchDelegate(
-        onUserSelected: (user) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => ChatScreen(
-                userId: user['id'],
-                userName: user['name'] ?? 'User',
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
 }
 
-class _ChatSearchDelegate extends SearchDelegate<String> {
-  final Function(Map<String, dynamic>) onUserSelected;
+class _PerawatSearchDelegate extends SearchDelegate<String> {
+  final Function(Map<String, dynamic>) onPerawatSelected;
 
-  _ChatSearchDelegate({required this.onUserSelected});
+  _PerawatSearchDelegate({required this.onPerawatSelected});
 
   @override
   List<Widget> buildActions(BuildContext context) {
@@ -402,12 +448,14 @@ class _ChatSearchDelegate extends SearchDelegate<String> {
       builder: (context, snapshot) {
         if (query.isEmpty) {
           return const Center(
-            child: Text('Masukkan nama untuk mencari'),
+            child: Text('Cari nama perawat...'),
           );
         }
 
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
+          return const Center(
+            child: CircularProgressIndicator(color: Color(0xFF9C6223)),
+          );
         }
 
         if (snapshot.hasError) {
@@ -416,30 +464,30 @@ class _ChatSearchDelegate extends SearchDelegate<String> {
           );
         }
 
-        final users = snapshot.data ?? [];
+        final perawatList = snapshot.data ?? [];
 
-        if (users.isEmpty) {
+        if (perawatList.isEmpty) {
           return const Center(
-            child: Text('Tidak ditemukan'),
+            child: Text('Tidak ditemukan perawat'),
           );
         }
 
         return ListView.builder(
-          itemCount: users.length,
+          itemCount: perawatList.length,
           itemBuilder: (context, index) {
-            final user = users[index];
+            final perawat = perawatList[index];
             return ListTile(
               leading: CircleAvatar(
-                backgroundColor: Colors.teal[100],
+                backgroundColor: const Color(0xFF9C6223).withOpacity(0.1),
                 child: Icon(
-                  Icons.person,
-                  color: Colors.teal[800],
+                  Icons.medical_services,
+                  color: const Color(0xFF9C6223),
                 ),
               ),
-              title: Text(user['name'] ?? 'User'),
-              subtitle: Text(user['role'] == 'keluarga' ? 'Keluarga' : 'Perawat'),
+              title: Text(perawat['name'] ?? 'Perawat'),
+              subtitle: const Text('Perawat'),
               onTap: () {
-                onUserSelected(user);
+                onPerawatSelected(perawat);
                 close(context, '');
               },
             );

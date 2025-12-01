@@ -1,10 +1,14 @@
-import 'package:flutter/material.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:sahabatsenja_app/halaman/splash_screen.dart';
-import 'firebase_options.dart';
+// Pastikan main.dart Anda seperti INI:
 
-Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:sahabatsenja_app/firebase_options.dart';
+import 'package:sahabatsenja_app/halaman/login_screen.dart';
+import 'package:sahabatsenja_app/providers/chat_provider.dart';
+
+void main() async{
+    WidgetsFlutterBinding.ensureInitialized();
 
   // Inisialisasi Firebase
   try {
@@ -15,8 +19,17 @@ Future<void> main() async {
   } catch (e) {
     debugPrint('Firebase sudah diinisialisasi sebelumnya: $e');
   }
-
-  runApp(const MyApp());
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(
+          create: (_) => ChatProvider(),
+          lazy: false, // ⬅️ PASTIKAN lazy: false untuk immediate creation
+        ),
+      ],
+      child: const MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
@@ -26,13 +39,13 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Sahabat Senja',
-      debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        primaryColor: const Color(0xFF9C6223),
+        fontFamily: 'Poppins',
         useMaterial3: true,
       ),
-      // Ganti ini ke SplashScreen() kalau kamu pakai splash dulu sebelum login
-      home: const SplashScreen(),
+      home: const LoginScreen(),
+      debugShowCheckedModeBanner: false,
     );
   }
 }

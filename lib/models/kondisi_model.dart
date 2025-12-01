@@ -1,65 +1,60 @@
+// models/kondisi_model.dart
 class KondisiHarian {
   final int? id;
-  final int idLansia;
-  final String tekananDarah;
-  final String nadi;
-  final String nafsuMakan;
-  final String statusObat;
-  final String? catatan;
-  final String status;
+  final String namaLansia; // Wajib ada
   final DateTime tanggal;
-  final String? namaLansia;
+  final String? tekananDarah;
+  final String? nadi;
+  final String? nafsuMakan;
+  final String? statusObat;
+  final String? catatan;
+  final String? status;
+  final int? datalansiaId; // ID dari tabel datalansia (opsional)
 
   KondisiHarian({
     this.id,
-    required this.idLansia,
-    required this.tekananDarah,
-    required this.nadi,
-    required this.nafsuMakan,
-    required this.statusObat,
-    this.catatan,
-    required this.status,
+    required this.namaLansia, // Wajib
     required this.tanggal,
-    this.namaLansia,
+    this.tekananDarah,
+    this.nadi,
+    this.nafsuMakan,
+    this.statusObat,
+    this.catatan,
+    this.status,
+    this.datalansiaId,
   });
 
-  /// 🧩 Ubah objek ke JSON (untuk dikirim ke API)
+  factory KondisiHarian.fromJson(Map<String, dynamic> json) {
+    return KondisiHarian(
+      id: json['id'] as int?,
+      namaLansia: json['nama_lansia'] ?? json['nama'] ?? '',
+      tanggal: DateTime.parse(json['tanggal'] ?? DateTime.now().toString()),
+      tekananDarah: json['tekanan_darah'],
+      nadi: json['nadi']?.toString(),
+      nafsuMakan: json['nafsu_makan'],
+      statusObat: json['status_obat'],
+      catatan: json['catatan'],
+      status: json['status'],
+      datalansiaId: json['datalansia_id'] as int?,
+    );
+  }
+
   Map<String, dynamic> toJson() {
     return {
-      'id_lansia': idLansia,
+      'nama_lansia': namaLansia, // Pastikan ini tidak null
+      'tanggal': tanggal.toIso8601String(),
       'tekanan_darah': tekananDarah,
       'nadi': nadi,
       'nafsu_makan': nafsuMakan,
       'status_obat': statusObat,
-      'catatan': catatan ?? '',
+      'catatan': catatan,
       'status': status,
-      'tanggal': tanggal.toIso8601String(),
+      if (datalansiaId != null) 'datalansia_id': datalansiaId,
     };
   }
 
-  /// 🧩 Parse dari JSON ke model Dart
-  factory KondisiHarian.fromJson(Map<String, dynamic> json) {
-    return KondisiHarian(
-      id: json['id'] is int ? json['id'] : int.tryParse(json['id'].toString()),
-      idLansia: json['id_lansia'] is int
-          ? json['id_lansia']
-          : int.tryParse(json['id_lansia'].toString()) ?? 0,
-      tekananDarah: json['tekanan_darah']?.toString() ?? '',
-      nadi: json['nadi']?.toString() ?? '',
-      nafsuMakan: json['nafsu_makan']?.toString() ?? '',
-      statusObat: json['status_obat']?.toString() ?? '',
-      catatan: json['catatan']?.toString(),
-      status: json['status']?.toString() ?? '',
-      tanggal: DateTime.tryParse(json['tanggal'].toString()) ?? DateTime.now(),
-      namaLansia: json['nama_lansia']?.toString() ?? '-',
-    );
-  }
-
-  /// 🧩 Get normalized status untuk konsistensi
-  String get normalizedStatus {
-    final statusLower = status.toLowerCase();
-    if (statusLower.contains('stabil')) return 'Stabil';
-    if (statusLower.contains('perhatian')) return 'Perlu Perhatian';
-    return status;
+  @override
+  String toString() {
+    return 'KondisiHarian(id: $id, namaLansia: $namaLansia, tanggal: $tanggal)';
   }
 }

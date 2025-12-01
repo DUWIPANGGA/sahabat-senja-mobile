@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sahabatsenja_app/models/datalansia_model.dart';
-import 'package:sahabatsenja_app/halaman/services/biodata_service.dart';
+import 'package:sahabatsenja_app/services/biodata_service.dart';
 import 'jadwal_obat_screen.dart';
 
 class PilihLansiaJadwalObatScreen extends StatefulWidget {
@@ -60,7 +60,7 @@ class _PilihLansiaJadwalObatScreenState
                         context,
                         MaterialPageRoute(
                           builder: (context) =>
-                              JadwalObatScreen(datalansiaId: lansia.id!),
+                              JadwalObatScreen(datalansiaId: lansia.id!,namaLansia: lansia.namaLansia,),
                         ),
                       );
                     },

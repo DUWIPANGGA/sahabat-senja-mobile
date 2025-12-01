@@ -4,6 +4,12 @@ import 'package:sahabatsenja_app/halaman/keluarga/kesehatan_screen.dart';
 import 'package:sahabatsenja_app/halaman/keluarga/transaction_screen.dart';
 import 'package:sahabatsenja_app/halaman/keluarga/donation_screen.dart';
 import 'package:sahabatsenja_app/halaman/keluarga/notification_screen.dart';
+import 'package:sahabatsenja_app/services/datalansia_service.dart';
+import 'package:sahabatsenja_app/services/kondisi_service.dart';
+import 'package:sahabatsenja_app/services/keluarga_service.dart' hide DatalansiaService;
+import 'package:sahabatsenja_app/models/datalansia_model.dart';
+import 'package:sahabatsenja_app/models/kondisi_model.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class HomeScreen extends StatefulWidget {
   final String namaKeluarga;
@@ -15,12 +21,89 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  int _notificationCount = 2;
+  final DatalansiaService _datalansiaService = DatalansiaService();
+  final KondisiService _kondisiService = KondisiService();
+  final KeluargaService _keluargaService = KeluargaService();
+  
+  int _notificationCount = 0;
+  List<Datalansia> _lansiaList = [];
+  List<KondisiHarian> _kondisiTerbaru = [];
+  int _totalLansia = 0;
+  int _lansiaStabil = 0;
+  bool _isLoading = true;
+  String? _userEmail;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+    _loadUserEmail();
+  }
+
+  Future<void> _loadUserEmail() async {
+    final prefs = await SharedPreferences.getInstance();
+    _userEmail = prefs.getString('user_email');
+  }
+
+  Future<void> _loadData() async {
+    setState(() => _isLoading = true);
+    try {
+      // 1. Load data lansia terhubung
+      if (_userEmail != null) {
+        _lansiaList = await _datalansiaService.getDatalansiaByKeluarga(_userEmail!);
+      } else {
+        _lansiaList = await _keluargaService.getLansiaTerhubung();
+      }
+      
+      _totalLansia = _lansiaList.length;
+
+      // 2. Load kondisi terbaru
+      if (_lansiaList.isNotEmpty) {
+        // Ambil kondisi untuk semua lansia
+        for (var lansia in _lansiaList) {
+          final kondisi = await _kondisiService.getTodayData(lansia.namaLansia ?? '');
+          if (kondisi != null) {
+            _kondisiTerbaru.add(kondisi);
+          }
+        }
+        
+        // Hitung lansia stabil
+        _lansiaStabil = _kondisiTerbaru.where((k) {
+          final nadi = int.tryParse(k.nadi ?? '0') ?? 0;
+          return nadi >= 60 && nadi <= 100;
+        }).length;
+      }
+
+      // 3. Hitung notifikasi (contoh: lansia perlu perhatian)
+      _notificationCount = _totalLansia - _lansiaStabil;
+
+    } catch (e) {
+      print('❌ Error load home data: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Future<void> _refreshData() async {
+    await _loadData();
+  }
 
   void _navigateToBiodataLansia(BuildContext context) {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const BiodataLansiaScreen()),
+    ).then((_) {
+      // Refresh data setelah kembali dari biodata
+      _refreshData();
+    });
+  }
+
+  void _navigateToKesehatan(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const KesehatanScreen()),
     );
   }
 
@@ -28,13 +111,6 @@ class _HomeScreenState extends State<HomeScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const TransactionScreen()),
-    );
-  }
-
-  void _navigateToHealth(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const KesehatanScreen()),
     );
   }
 
@@ -60,21 +136,31 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFFFF9F5),
       body: SafeArea(
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              minHeight: MediaQuery.of(context).size.height -
-                  MediaQuery.of(context).padding.top -
-                  MediaQuery.of(context).padding.bottom,
-            ),
-            child: Column(
-              children: [
-                _buildHeader(),
-                _buildQuickMenu(context),
-                _buildRecentActivities(),
-                const SizedBox(height: 20), // Extra space at bottom
-              ],
+        child: RefreshIndicator(
+          onRefresh: _refreshData,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight: MediaQuery.of(context).size.height -
+                    MediaQuery.of(context).padding.top -
+                    MediaQuery.of(context).padding.bottom,
+              ),
+              child: Column(
+                children: [
+                  _buildHeader(),
+                  if (_isLoading) ...[
+                    _buildLoadingSection(),
+                  ] else ...[
+                    _buildStatsSection(),
+                    _buildQuickMenu(context),
+                    if (_kondisiTerbaru.isNotEmpty) ...[
+                      _buildRecentActivities(),
+                    ],
+                    const SizedBox(height: 20),
+                  ],
+                ],
+              ),
             ),
           ),
         ),
@@ -85,7 +171,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildHeader() {
     return Container(
       width: double.infinity,
-      height: 200, // Kurangi tinggi sedikit agar lebih proporsional
+      height: 200,
       decoration: BoxDecoration(
         borderRadius: const BorderRadius.only(
           bottomLeft: Radius.circular(30),
@@ -105,7 +191,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
       child: Container(
-        padding: const EdgeInsets.fromLTRB(20, 25, 20, 25), // Kurangi padding bawah
+        padding: const EdgeInsets.fromLTRB(20, 25, 20, 25),
         decoration: BoxDecoration(
           borderRadius: const BorderRadius.only(
             bottomLeft: Radius.circular(30),
@@ -122,9 +208,8 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween, // Ubah dari end ke spaceBetween
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            // Spacer untuk mengatur jarak dari atas
             const SizedBox(height: 8),
             
             Row(
@@ -153,7 +238,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           height: 1.1,
                         ),
                       ),
-                      const SizedBox(height: 8), // Kurangi spacing
+                      const SizedBox(height: 8),
                       Text(
                         widget.namaKeluarga,
                         style: const TextStyle(
@@ -170,6 +255,15 @@ class _HomeScreenState extends State<HomeScreen> {
                           color: Colors.white60,
                         ),
                       ),
+                      const SizedBox(height: 4),
+                      if (_userEmail != null)
+                        Text(
+                          _userEmail!,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Colors.white54,
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -204,7 +298,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             minHeight: 20,
                           ),
                           child: Text(
-                            _notificationCount.toString(),
+                            _notificationCount > 9 ? '9+' : _notificationCount.toString(),
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 10,
@@ -219,10 +313,158 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
             
-            // Spacer kecil di bawah untuk balance
             const SizedBox(height: 8),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildLoadingSection() {
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(40),
+      child: const Column(
+        children: [
+          CircularProgressIndicator(color: Color(0xFF9C6223)),
+          SizedBox(height: 16),
+          Text(
+            'Memuat data...',
+            style: TextStyle(color: Colors.grey),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatsSection() {
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.insights_outlined, color: Color(0xFF9C6223), size: 22),
+              SizedBox(width: 8),
+              Text(
+                'Statistik Lansia',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF333333),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildStatCard(
+                'Total Lansia',
+                _totalLansia.toString(),
+                Icons.people_outline,
+                Colors.blue,
+              ),
+              _buildStatCard(
+                'Kondisi Stabil',
+                _lansiaStabil.toString(),
+                Icons.check_circle_outline,
+                Colors.green,
+              ),
+              _buildStatCard(
+                'Perlu Perhatian',
+                (_totalLansia - _lansiaStabil).toString(),
+                Icons.warning,
+                Colors.orange,
+              ),
+            ],
+          ),
+          if (_lansiaList.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 16),
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.amber[50],
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.amber),
+                ),
+                child: Column(
+                  children: [
+                    const Icon(Icons.info_outline, color: Colors.amber, size: 32),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Belum ada lansia terhubung',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w500,
+                        color: Colors.amber,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Email Anda: ${_userEmail ?? "Tidak ada"}',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatCard(String title, String value, IconData icon, Color color) {
+    return Expanded(
+      child: Column(
+        children: [
+          Container(
+            width: 60,
+            height: 60,
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              shape: BoxShape.circle,
+              border: Border.all(color: color.withOpacity(0.2), width: 2),
+            ),
+            child: Icon(icon, color: color, size: 30),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 12,
+              color: Colors.grey,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
       ),
     );
   }
@@ -270,12 +512,12 @@ class _HomeScreenState extends State<HomeScreen> {
                     'Kesehatan', 
                     Icons.medical_services_outlined, 
                     const Color(0xFF4CAF50), 
-                    () => _navigateToHealth(context),
+                    () => _navigateToKesehatan(context),
                     'Pantau kesehatan lansia',
                     buttonSize,
                   ),
                   _buildMenuButton(
-                    'Biodata Lansia', 
+                    'Biodata', 
                     Icons.person_outline, 
                     const Color(0xFF2196F3), 
                     () => _navigateToBiodataLansia(context),
@@ -347,33 +589,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildRecentActivities() {
-    final activities = [
-      {
-        'title': 'Update Kondisi Lansia',
-        'time': 'Hari ini, 10:30',
-        'status': 'Stabil',
-        'color': Colors.green,
-        'icon': Icons.monitor_heart_outlined,
-        'description': 'Pemeriksaan kesehatan rutin'
-      },
-      {
-        'title': 'Pemeriksaan Rutin',
-        'time': 'Hari ini, 08:00',
-        'status': 'Selesai',
-        'color': Colors.blue,
-        'icon': Icons.medical_services_outlined,
-        'description': 'Kontrol dokter mingguan'
-      },
-      {
-        'title': 'Aktivitas Senam',
-        'time': 'Kemarin, 07:30',
-        'status': 'Selesai',
-        'color': Colors.orange,
-        'icon': Icons.fitness_center_outlined,
-        'description': 'Senam pagi lansia'
-      },
-    ];
-
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       padding: const EdgeInsets.all(20),
@@ -396,7 +611,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Icon(Icons.history_outlined, color: Color(0xFF9C6223), size: 22),
               SizedBox(width: 8),
               Text(
-                'Aktivitas Terbaru',
+                'Kondisi Terbaru',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -406,34 +621,52 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
           const SizedBox(height: 16),
-          Column(
-            children: activities.map((activity) {
-              return _buildActivityItem(
-                activity['title'] as String,
-                activity['time'] as String,
-                activity['status'] as String,
-                activity['color'] as Color,
-                activity['icon'] as IconData,
-                activity['description'] as String,
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 8),
-          Center(
-            child: TextButton(
-              onPressed: () {
-                // Aksi untuk lihat semua aktivitas
-              },
-              child: const Text(
-                'Lihat Semua Aktivitas',
-                style: TextStyle(
-                  color: Color(0xFF9C6223),
-                  fontWeight: FontWeight.w500,
-                  fontSize: 14,
+          if (_kondisiTerbaru.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              child: Column(
+                children: [
+                  const Icon(Icons.info_outline, color: Colors.grey, size: 48),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Belum ada data kondisi hari ini',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ],
+              ),
+            )
+          else
+            Column(
+              children: _kondisiTerbaru.take(3).map((kondisi) {
+                final isStabil = (int.tryParse(kondisi.nadi ?? '0') ?? 0) >= 60 && 
+                                (int.tryParse(kondisi.nadi ?? '0') ?? 0) <= 100;
+                
+                return _buildActivityItem(
+                  kondisi.namaLansia ?? 'Lansia',
+                  '${kondisi.tanggal.day}/${kondisi.tanggal.month}/${kondisi.tanggal.year}',
+                  isStabil ? 'Stabil' : 'Perlu Perhatian',
+                  isStabil ? Colors.green : Colors.orange,
+                  isStabil ? Icons.check_circle_outline : Icons.warning,
+                  'Detak: ${kondisi.nadi ?? "-"} bpm • TD: ${kondisi.tekananDarah ?? "-"}',
+                );
+              }).toList(),
+            ),
+          if (_kondisiTerbaru.length > 3)
+            Center(
+              child: TextButton(
+                onPressed: () {
+                  // Navigasi ke screen kondisi lengkap
+                },
+                child: const Text(
+                  'Lihat Semua Kondisi',
+                  style: TextStyle(
+                    color: Color(0xFF9C6223),
+                    fontWeight: FontWeight.w500,
+                    fontSize: 14,
+                  ),
                 ),
               ),
             ),
-          ),
         ],
       ),
     );
@@ -479,7 +712,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    time,
+                    'Update: $time',
                     style: TextStyle(
                       fontSize: 12,
                       color: Colors.grey[600],
