@@ -1,8 +1,11 @@
-import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:sahabatsenja_app/halaman/keluarga/home_screen.dart';
+import 'package:sahabatsenja_app/services/api_service.dart';
+import 'package:sahabatsenja_app/services/auth_service.dart';
 import 'package:sahabatsenja_app/halaman/perawat/home_perawat_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'main_app.dart';
 import 'register_screen.dart';
 
@@ -14,10 +17,7 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final GoogleSignIn _googleSignIn = GoogleSignIn(scopes: ['email']);
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-
+  final ApiService _apiService = ApiService();
   bool _isLoading = false;
   bool _obscurePassword = true;
 
@@ -27,108 +27,150 @@ class _LoginScreenState extends State<LoginScreen> {
   final Color mainColor = const Color(0xFF9C6223);
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
-  // ✅ LOGIN DENGAN EMAIL & PASSWORD
+  // ✅ LOGIN DENGAN EMAIL & PASSWORD KE API LARAVEL
   Future<void> _handleEmailLogin() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
     try {
-      final userCredential = await _auth.signInWithEmailAndPassword(
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
-      );
+      print('📡 Mengirim request login ke API...');
+      print('📧 Email: ${_emailController.text.trim()}');
+      
+      final response = await _apiService.post('auth/login', {
+        'email': _emailController.text.trim(),
+        'password': _passwordController.text,
+      });
 
-      final user = userCredential.user;
-      if (user == null) {
-        _showSnack('Gagal login, user tidak ditemukan.');
-        return;
-      }
+      print('📥 Response API: $response');
+      
+      if (response['status'] == 'success') {
+        final user = response['data']['user'];
+        final token = response['data']['token'];
+        
+        // Simpan semua data user ke shared preferences
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('auth_token', token);
+        await prefs.setString('user_role', user['role']);
+        await prefs.setString('user_name', user['name']);
+        await prefs.setString('user_email', user['email']);
+        
+        // SIMPAN USER ID untuk chat
+        await prefs.setInt('user_id', user['id']);
+        await prefs.setString('user_phone', user['phone'] ?? '');
+        await prefs.setString('user_address', user['address'] ?? '');
+        await prefs.setString('user_avatar', user['avatar_url'] ?? '');
 
-      print('🔍 Cek Firestore apakah user perawat...');
-      final query = await _firestore
-          .collection('users')
-          .where('uid', isEqualTo: user.uid)
-          .limit(1)
-          .get();
-
-      if (query.docs.isNotEmpty) {
-        final data = query.docs.first.data();
-        final role = (data['role'] ?? '').toString().toLowerCase();
-
-        print('🧾 Ditemukan user di Firestore: $data');
-        if (role == 'perawat') {
-          print('✅ Role PERAWAT ditemukan → ke HomePerawatScreen');
-          if (mounted) {
+        print('✅ Login berhasil. Role: ${user['role']}, ID: ${user['id']}');
+        print('🔑 Token: ${token.substring(0, 20)}...');
+        
+        // Navigasi berdasarkan role
+        // if (mounted) {
+          // if (user['role'] == 'admin') {
+            // print('🚀 Navigasi ke HomePerawatScreen');
+            // Navigator.pushReplacement(
+            //   context,
+            //   MaterialPageRoute(builder: (_) => HomePerawatScreen()),
+            // );
+        //   } else if (user['role'] == 'keluarga') {
+        //     print('🚀 Navigasi ke HomeScreen untuk keluarga');
             Navigator.pushReplacement(
               context,
-              MaterialPageRoute(builder: (_) => HomePerawatScreen()),
+              MaterialPageRoute(
+                builder: (_) => HomeScreen(
+                  namaKeluarga: user['name'] ?? '',
+                ),
+              ),
             );
-            return;
-          }
-        }
+        //   } else {
+        //     // Role lainnya
+        //     print('⚠️ Role tidak dikenal: ${user['role']}');
+        //     _showSnack('Role tidak dikenali. Hubungi administrator.');
+        //   }
+        // }
+      } else {
+        print('❌ Login gagal: ${response['message']}');
+        _showSnack(response['message'] ?? 'Login gagal');
       }
-
-      // Default ke keluarga kalau tidak ditemukan di Firestore
-      print('⚠️ Tidak ada data di Firestore → ke MainApp (keluarga)');
-      if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-              builder: (_) => const MainApp(
-                    namaKeluarga: '',
-                  )),
-        );
-      }
-    } on FirebaseAuthException catch (e) {
-      String msg = 'Terjadi kesalahan saat login';
-      if (e.code == 'user-not-found') msg = 'Email tidak ditemukan';
-      if (e.code == 'wrong-password') msg = 'Kata sandi salah';
-      if (e.code == 'invalid-email') msg = 'Format email tidak valid';
-      if (e.code == 'user-disabled') msg = 'Akun ini dinonaktifkan';
-      _showSnack(msg);
     } catch (e) {
-      _showSnack('Gagal login: $e');
+      print('❌ Login error: $e');
+      print('❌ Stack trace: ${e.toString()}');
+      _showSnack('Gagal login. Periksa koneksi internet Anda.');
     } finally {
       setState(() => _isLoading = false);
+      print('🔄 Loading dihentikan');
     }
   }
 
-  // ✅ LOGIN DENGAN GOOGLE
+  // ✅ LOGIN DENGAN GOOGLE (TETAP PAKAI FIREBASE TAPI SYNC KE LARAVEL)
   Future<void> _handleGoogleLogin() async {
     setState(() => _isLoading = true);
     try {
-      await _googleSignIn.signOut();
-      final googleUser = await _googleSignIn.signIn();
+      // 1. Login dengan Google via Firebase
+      final googleSignIn = GoogleSignIn();
+      final googleUser = await googleSignIn.signIn();
       if (googleUser == null) {
         setState(() => _isLoading = false);
         return;
       }
-
+      
       final googleAuth = await googleUser.authentication;
       final credential = GoogleAuthProvider.credential(
         idToken: googleAuth.idToken,
         accessToken: googleAuth.accessToken,
       );
+      
+      final userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
+      final firebaseUser = userCredential.user;
+      
+      if (firebaseUser != null) {
+        // 2. Sync dengan Laravel sebagai keluarga
+        final authService = AuthService();
+        final response = await authService.syncWithLaravel(role: 'keluarga');
+        
+        if (response != null && response['status'] == 'success') {
+          final user = response['data']['user'];
+          final token = response['data']['token'];
+          
+          // Simpan semua data user ke shared preferences
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('auth_token', token);
+          await prefs.setString('user_role', user['role'] ?? 'keluarga');
+          await prefs.setString('user_name', user['name'] ?? firebaseUser.displayName ?? '');
+          await prefs.setString('user_email', user['email'] ?? firebaseUser.email ?? '');
+          await prefs.setInt('user_id', user['id'] ?? 0);
+          await prefs.setString('user_phone', user['phone'] ?? '');
+          await prefs.setString('user_address', user['address'] ?? '');
+          await prefs.setString('user_avatar', user['avatar_url'] ?? firebaseUser.photoURL ?? '');
 
-      final userCredential = await _auth.signInWithCredential(credential);
-      if (userCredential.user != null && mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-              builder: (_) => const MainApp(
-                    namaKeluarga: '',
-                  )),
-        );
+          print('✅ Google login berhasil. ID: ${user['id']}');
+          
+          // Navigasi ke MainApp untuk keluarga
+          if (mounted) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (_) => HomeScreen(
+                  namaKeluarga: user['name'] ?? firebaseUser.displayName ?? '',
+                ),
+              ),
+            );
+          }
+        } else {
+          _showSnack('Gagal sinkronisasi dengan server');
+        }
       }
     } catch (e) {
-      _showSnack('Gagal login dengan Google: $e');
+      print('❌ Google login error: $e');
+      _showSnack('Gagal login dengan Google');
     } finally {
       setState(() => _isLoading = false);
     }
   }
 
-  // ✅ RESET PASSWORD
+  // ✅ RESET PASSWORD (VIA API LARAVEL)
   void _showForgotPasswordDialog() {
+    final emailController = TextEditingController(text: _emailController.text);
+    
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
@@ -139,21 +181,23 @@ class _LoginScreenState extends State<LoginScreen> {
             const Text('Masukkan email Anda untuk mereset kata sandi:'),
             const SizedBox(height: 16),
             TextFormField(
-              controller: _emailController,
+              controller: emailController,
               decoration: const InputDecoration(
                 hintText: 'Masukkan Email',
                 border: OutlineInputBorder(),
               ),
+              keyboardType: TextInputType.emailAddress,
             ),
           ],
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Batal')),
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Batal'),
+          ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: mainColor),
-            onPressed: _handleForgotPassword,
+            onPressed: () => _handleForgotPassword(emailController.text),
             child: const Text('Kirim Link Reset'),
           ),
         ],
@@ -161,36 +205,99 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Future<void> _handleForgotPassword() async {
-    if (_emailController.text.isEmpty) {
+  Future<void> _handleForgotPassword(String email) async {
+    if (email.isEmpty) {
       _showSnack('Masukkan email untuk reset kata sandi');
       return;
     }
 
     setState(() => _isLoading = true);
     try {
-      await _auth.sendPasswordResetEmail(email: _emailController.text.trim());
-      _showDialog(
-        'Email Reset Terkirim',
-        'Kami telah mengirim link reset kata sandi ke ${_emailController.text.trim()}. Silakan cek email Anda.',
-      );
+      // Endpoint forgot-password di Laravel
+      final response = await _apiService.post('auth/forgot-password', {
+        'email': email.trim(),
+      }, includeAuth: false);
+      
+      if (response['status'] == 'success') {
+        _showDialog(
+          'Email Reset Terkirim',
+          'Kami telah mengirim link reset kata sandi ke $email. Silakan cek email Anda.',
+        );
+      } else {
+        _showSnack(response['message'] ?? 'Gagal mengirim email reset');
+      }
     } catch (e) {
       _showSnack('Gagal mengirim email reset: $e');
     } finally {
+      Navigator.pop(context); // Tutup dialog forgot password
       setState(() => _isLoading = false);
     }
+  }
+
+  // ✅ CEK TOKEN SAAT INISIALISASI (AUTO LOGIN)
+  Future<void> _checkAutoLogin() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+      final role = prefs.getString('user_role');
+      final name = prefs.getString('user_name');
+      final userId = prefs.getInt('user_id');
+      
+      if (token != null && role != null && name != null && userId != null) {
+        // Verifikasi token masih valid
+        print('🔍 Cek auto-login...');
+        final response = await _apiService.get('auth/user');
+        
+        if (response['status'] == 'success' && mounted) {
+          print('✅ Auto-login berhasil');
+          if (role == 'admin') {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => HomePerawatScreen()),
+            );
+          } else {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (_) => HomeScreen(namaKeluarga: name),
+              ),
+            );
+          }
+        } else {
+          // Token tidak valid, clear storage
+          print('❌ Token tidak valid');
+          await ApiService.clearToken();
+        }
+      }
+    } catch (e) {
+      print('❌ Auto-login error: $e');
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkAutoLogin();
+    });
   }
 
   // ✅ Navigasi ke Register
   void _navigateToRegister() {
     Navigator.push(
-        context, MaterialPageRoute(builder: (_) => const RegisterScreen()));
+      context, 
+      MaterialPageRoute(builder: (_) => const RegisterScreen()),
+    );
   }
 
   // ✅ Utilitas UI
   void _showSnack(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.red),
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        duration: const Duration(seconds: 3),
+      ),
     );
   }
 
@@ -202,7 +309,9 @@ class _LoginScreenState extends State<LoginScreen> {
         content: Text(message),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context), child: const Text('OK'))
+            onPressed: () => Navigator.pop(context), 
+            child: const Text('OK'),
+          ),
         ],
       ),
     );
@@ -210,8 +319,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
   String? _emailValidator(String? value) {
     if (value == null || value.isEmpty) return 'Email harus diisi';
-    if (!value.contains('@') || !value.contains('.'))
+    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
       return 'Format email tidak valid';
+    }
     return null;
   }
 
@@ -229,6 +339,7 @@ class _LoginScreenState extends State<LoginScreen> {
         child: SingleChildScrollView(
           child: Column(
             children: [
+              // Bagian atas dengan gambar dan tombol pendaftaran
               ClipPath(
                 clipper: BottomCurveClipper(),
                 child: Container(
@@ -275,15 +386,19 @@ class _LoginScreenState extends State<LoginScreen> {
                           style: ElevatedButton.styleFrom(
                             backgroundColor: mainColor,
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 30, vertical: 12),
+                              horizontal: 30,
+                              vertical: 12,
+                            ),
                             shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10)),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
                           ),
                           child: const Text(
                             'PENDAFTARAN',
                             style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold),
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                       ],
@@ -291,13 +406,25 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
               ),
+              
+              // Logo dan form login
               const SizedBox(height: 30),
-              Image.asset('assets/images/logo_login.png',
-                  width: 130, height: 130),
+              Image.asset(
+                'assets/images/logo_login.png',
+                width: 130,
+                height: 130,
+              ),
               const SizedBox(height: 12),
-              const Text('Sahabat Senja',
-                  style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
+              const Text(
+                'Sahabat Senja',
+                style: TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               const SizedBox(height: 35),
+              
+              // Form login
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Form(
@@ -305,20 +432,32 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: Column(
                     children: [
                       _buildTextField(
-                          'Email', _emailController, false, _emailValidator),
+                        'Email',
+                        _emailController,
+                        false,
+                        _emailValidator,
+                      ),
                       const SizedBox(height: 20),
-                      _buildTextField('Kata Sandi', _passwordController, true,
-                          _passwordValidator),
+                      _buildTextField(
+                        'Kata Sandi',
+                        _passwordController,
+                        true,
+                        _passwordValidator,
+                      ),
                       const SizedBox(height: 12),
                       Align(
                         alignment: Alignment.centerRight,
                         child: GestureDetector(
                           onTap: _showForgotPasswordDialog,
-                          child: Text('Lupa Kata Sandi?',
-                              style: TextStyle(color: mainColor)),
+                          child: Text(
+                            'Lupa Kata Sandi?',
+                            style: TextStyle(color: mainColor),
+                          ),
                         ),
                       ),
                       const SizedBox(height: 30),
+                      
+                      // Tombol Login
                       _isLoading
                           ? const CircularProgressIndicator()
                           : SizedBox(
@@ -326,44 +465,59 @@ class _LoginScreenState extends State<LoginScreen> {
                               child: ElevatedButton(
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: mainColor,
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 16),
+                                  padding: const EdgeInsets.symmetric(vertical: 16),
                                   shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12)),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
                                 ),
                                 onPressed: _handleEmailLogin,
-                                child: const Text('Masuk',
-                                    style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w600)),
+                                child: const Text(
+                                  'Masuk',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
                               ),
                             ),
+                      
+                      // Link ke register
                       const SizedBox(height: 24),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Text('Belum punya akun?',
-                              style: TextStyle(color: Colors.grey)),
+                          const Text(
+                            'Belum punya akun?',
+                            style: TextStyle(color: Colors.grey),
+                          ),
                           const SizedBox(width: 8),
                           GestureDetector(
                             onTap: _navigateToRegister,
-                            child: Text('Daftar di sini',
-                                style: TextStyle(
-                                    color: mainColor,
-                                    fontWeight: FontWeight.w500)),
+                            child: Text(
+                              'Daftar di sini',
+                              style: TextStyle(
+                                color: mainColor,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
                           ),
                         ],
                       ),
+                      
+                      // Divider "atau"
                       const SizedBox(height: 24),
                       Row(
                         children: [
                           Expanded(child: Divider(color: Colors.grey[300])),
                           const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 16),
-                              child: Text('atau')),
+                            padding: EdgeInsets.symmetric(horizontal: 16),
+                            child: Text('atau'),
+                          ),
                           Expanded(child: Divider(color: Colors.grey[300])),
                         ],
                       ),
+                      
+                      // Tombol Google
                       const SizedBox(height: 24),
                       OutlinedButton(
                         style: OutlinedButton.styleFrom(
@@ -371,14 +525,18 @@ class _LoginScreenState extends State<LoginScreen> {
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           side: BorderSide(color: Colors.grey[300]!),
                           shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12)),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
                         onPressed: _handleGoogleLogin,
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Image.asset('assets/images/google.png',
-                                width: 24, height: 24),
+                            Image.asset(
+                              'assets/images/google.png',
+                              width: 24,
+                              height: 24,
+                            ),
                             const SizedBox(width: 12),
                             const Text('Masuk dengan Google'),
                           ],
@@ -396,12 +554,19 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _buildTextField(String label, TextEditingController controller,
-      bool isPassword, String? Function(String?)? validator) {
+  Widget _buildTextField(
+    String label,
+    TextEditingController controller,
+    bool isPassword,
+    String? Function(String?)? validator,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontWeight: FontWeight.w500)),
+        Text(
+          label,
+          style: const TextStyle(fontWeight: FontWeight.w500),
+        ),
         const SizedBox(height: 8),
         TextFormField(
           controller: controller,
@@ -411,14 +576,18 @@ class _LoginScreenState extends State<LoginScreen> {
             hintText: 'Masukkan $label',
             suffixIcon: isPassword
                 ? IconButton(
-                    icon: Icon(_obscurePassword
-                        ? Icons.visibility_off
-                        : Icons.visibility),
+                    icon: Icon(
+                      _obscurePassword
+                          ? Icons.visibility_off
+                          : Icons.visibility,
+                    ),
                     onPressed: () =>
                         setState(() => _obscurePassword = !_obscurePassword),
                   )
                 : null,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             filled: true,
             fillColor: Colors.white,
           ),
@@ -441,7 +610,11 @@ class BottomCurveClipper extends CustomClipper<Path> {
     final path = Path();
     path.lineTo(0, size.height - 40);
     path.quadraticBezierTo(
-        size.width / 2, size.height, size.width, size.height - 40);
+      size.width / 2,
+      size.height,
+      size.width,
+      size.height - 40,
+    );
     path.lineTo(size.width, 0);
     path.close();
     return path;

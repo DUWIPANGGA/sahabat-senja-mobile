@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sahabatsenja_app/models/datalansia_model.dart';
-import 'package:sahabatsenja_app/halaman/services/biodata_service.dart';
+import 'package:sahabatsenja_app/services/biodata_service.dart';
 import 'detail_lansia_screen.dart';
 
 class DataLansiaScreen extends StatefulWidget {

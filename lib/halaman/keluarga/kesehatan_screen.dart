@@ -1,9 +1,9 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:sahabatsenja_app/models/datalansia_model.dart';
 import 'package:sahabatsenja_app/models/kondisi_model.dart';
-import 'package:sahabatsenja_app/halaman/services/biodata_service.dart';
-import 'package:sahabatsenja_app/halaman/services/kondisi_service.dart';
+import 'package:sahabatsenja_app/services/datalansia_service.dart';
+import 'package:sahabatsenja_app/services/kondisi_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class KesehatanScreen extends StatefulWidget {
   const KesehatanScreen({super.key});
@@ -13,11 +13,13 @@ class KesehatanScreen extends StatefulWidget {
 }
 
 class _KesehatanScreenState extends State<KesehatanScreen> {
-  final BiodataService _biodataService = BiodataService();
+  final DatalansiaService _datalansiaService = DatalansiaService();
   final KondisiService _kondisiService = KondisiService();
 
   List<Datalansia> _lansiaTerhubung = [];
   bool _isLoading = true;
+  String? _errorMessage;
+  String? _userEmail;
 
   @override
   void initState() {
@@ -25,34 +27,55 @@ class _KesehatanScreenState extends State<KesehatanScreen> {
     _loadUserData();
   }
 
-  /// 🔹 Ambil data keluarga yang login & lansia yang terhubung
+  /// 🔹 Ambil email user dari SharedPreferences
+  Future<void> _loadUserEmail() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _userEmail = prefs.getString('user_email');
+      debugPrint('📧 User email: $_userEmail');
+    } catch (e) {
+      debugPrint('❌ Error load email: $e');
+    }
+  }
+
+  /// 🔹 Ambil data lansia berdasarkan email user yang login
   Future<void> _loadUserData() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
 
     try {
-      final user = FirebaseAuth.instance.currentUser;
-      final email = user?.email;
-
-      if (email != null) {
-        // Ambil ID keluarga berdasarkan email login
-        final idKeluarga = await _biodataService.getIdKeluargaByEmail(email);
-
-        if (idKeluarga != null) {
-
-          // Ambil data lansia berdasarkan id keluarga
-          final dataLansia =
-              await _biodataService.getBiodataByKeluarga(idKeluarga);
-
-          setState(() {
-            _lansiaTerhubung = dataLansia;
-          });
-        }
+      await _loadUserEmail();
+      
+      if (_userEmail != null && _userEmail!.isNotEmpty) {
+        // Ambil data lansia berdasarkan email keluarga
+        final dataLansia = await _datalansiaService.getDatalansiaByKeluarga(_userEmail!);
+        
+        debugPrint('📊 Data lansia ditemukan: ${dataLansia.length} item');
+        
+        setState(() {
+          _lansiaTerhubung = dataLansia;
+        });
+      } else {
+        setState(() {
+          _errorMessage = 'Silakan login terlebih dahulu';
+        });
+        debugPrint('⚠️ User belum login atau email tidak ditemukan');
       }
     } catch (e) {
-      debugPrint('❌ Error ambil data user/lansia: $e');
+      debugPrint('❌ Error ambil data lansia: $e');
+      setState(() {
+        _errorMessage = 'Gagal memuat data: $e';
+      });
     }
 
     setState(() => _isLoading = false);
+  }
+
+  /// 🔹 Refresh data
+  Future<void> _refreshData() async {
+    await _loadUserData();
   }
 
   @override
@@ -62,12 +85,21 @@ class _KesehatanScreenState extends State<KesehatanScreen> {
         title: const Text('Kesehatan Lansia'),
         backgroundColor: Colors.green[700],
         foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _refreshData,
+            tooltip: 'Refresh',
+          ),
+        ],
       ),
       body: _isLoading
           ? _buildLoading()
-          : _lansiaTerhubung.isEmpty
-              ? _buildEmptyState()
-              : _buildLansiaList(),
+          : _errorMessage != null
+              ? _buildErrorState()
+              : _lansiaTerhubung.isEmpty
+                  ? _buildEmptyState()
+                  : _buildLansiaList(),
     );
   }
 
@@ -79,6 +111,37 @@ class _KesehatanScreenState extends State<KesehatanScreen> {
             SizedBox(height: 16),
             Text('Memuat data kesehatan...'),
           ],
+        ),
+      );
+
+  Widget _buildErrorState() => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error_outline, size: 80, color: Colors.red),
+              const SizedBox(height: 16),
+              Text(
+                _errorMessage ?? 'Terjadi kesalahan',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.red,
+                ),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: _refreshData,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green[700],
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Coba Lagi'),
+              ),
+            ],
+          ),
         ),
       );
 
@@ -100,53 +163,144 @@ class _KesehatanScreenState extends State<KesehatanScreen> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 40),
               child: Text(
-                'Tambahkan data lansia melalui menu "Tambah Lansia"',
+                'Anda belum memiliki data lansia yang terhubung\n\n'
+                'Email login Anda: $_userEmail',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: Colors.grey,
+                  color: Colors.grey[600],
                   fontSize: 14,
                 ),
               ),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: _refreshData,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green[700],
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Refresh Data'),
             ),
           ],
         ),
       );
 
   Widget _buildLansiaList() {
-    return ListView.builder(
-      itemCount: _lansiaTerhubung.length,
-      itemBuilder: (context, index) {
-        final lansia = _lansiaTerhubung[index];
+    return RefreshIndicator(
+      onRefresh: _refreshData,
+      child: ListView.builder(
+        itemCount: _lansiaTerhubung.length,
+        itemBuilder: (context, index) {
+          final lansia = _lansiaTerhubung[index];
+          final namaLansia = lansia.namaLansia ?? 'Tanpa Nama';
 
-        return FutureBuilder<KondisiHarian?>(
-          future: _kondisiService.getTodayData(lansia.id as String),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Padding(
-                padding: EdgeInsets.all(16),
-                child: Center(child: CircularProgressIndicator()),
-              );
-            }
+          return FutureBuilder<KondisiHarian?>(
+            future: _kondisiService.getTodayData(namaLansia),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return _buildLoadingCard(lansia);
+              }
 
-            if (snapshot.hasError) {
-              return Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text(
-                  'Gagal memuat kondisi: ${snapshot.error}',
-                  style: const TextStyle(color: Colors.red),
+              if (snapshot.hasError) {
+                return _buildErrorCard(lansia, snapshot.error.toString());
+              }
+
+              final kondisi = snapshot.data;
+              return _buildLansiaCard(lansia, kondisi);
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildLoadingCard(Datalansia lansia) {
+    return Card(
+      margin: const EdgeInsets.all(16),
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            CircleAvatar(
+              backgroundColor: Colors.grey[200],
+              child: Icon(Icons.person, color: Colors.grey[500]),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    lansia.namaLansia ?? 'Tanpa Nama',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${lansia.umurLansia ?? '-'} tahun',
+                    style: TextStyle(color: Colors.grey[600]),
+                  ),
+                  const SizedBox(height: 8),
+                  const LinearProgressIndicator(),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorCard(Datalansia lansia, String error) {
+    return Card(
+      margin: const EdgeInsets.all(16),
+      elevation: 2,
+      color: Colors.red[50],
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                CircleAvatar(
+                  backgroundColor: Colors.red[100],
+                  child: Icon(Icons.error, color: Colors.red[700]),
                 ),
-              );
-            }
-
-            final kondisi = snapshot.data;
-            return _buildLansiaCard(lansia, kondisi);
-          },
-        );
-      },
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    lansia.namaLansia ?? 'Tanpa Nama',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Gagal memuat data kesehatan',
+              style: TextStyle(color: Colors.red[700]),
+            ),
+            Text(
+              'Error: ${error.length > 50 ? '${error.substring(0, 50)}...' : error}',
+              style: TextStyle(color: Colors.red[600], fontSize: 12),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
   Widget _buildLansiaCard(Datalansia lansia, KondisiHarian? kondisi) {
+    final status = kondisi?.status ?? 'Belum Diperiksa';
+    final statusColor = _getStatusColor(status);
+
     return Card(
       margin: const EdgeInsets.all(16),
       elevation: 2,
@@ -155,6 +309,7 @@ class _KesehatanScreenState extends State<KesehatanScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Header dengan informasi lansia
             Row(
               children: [
                 CircleAvatar(
@@ -167,38 +322,35 @@ class _KesehatanScreenState extends State<KesehatanScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        lansia.namaLansia,
+                        lansia.namaLansia ?? 'Tanpa Nama',
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                       Text(
-                        '${lansia.umurLansia ?? '-'} tahun',
-                        style: TextStyle(
-                          color: Colors.grey[600],
-                          fontSize: 12,
-                        ),
+                        '${lansia.umurLansia ?? '-'} tahun | ${lansia.jenisKelaminLansia ?? '-'}',
+                        style: TextStyle(color: Colors.grey[600]),
                       ),
-                      Text(
-                        'Alamat: ${lansia.alamatLengkap ?? '-'}',
-                        style: TextStyle(
-                          color: Colors.grey[500],
-                          fontSize: 11,
+                      if (lansia.alamatLengkap != null && lansia.alamatLengkap!.isNotEmpty)
+                        Text(
+                          lansia.alamatLengkap!,
+                          style: TextStyle(color: Colors.grey[500], fontSize: 11),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                      ),
                     ],
                   ),
                 ),
+                // Status badge
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: _getStatusColor(kondisi?.status),
+                    color: statusColor,
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    kondisi?.status ?? 'Belum Diperiksa',
+                    status,
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 12,
@@ -208,8 +360,13 @@ class _KesehatanScreenState extends State<KesehatanScreen> {
                 ),
               ],
             ),
+
             const SizedBox(height: 16),
-            kondisi != null ? _buildHealthData(kondisi) : _buildNoHealthData(),
+
+            // Data kesehatan jika ada
+            kondisi != null 
+                ? _buildHealthData(kondisi)
+                : _buildNoHealthData(),
           ],
         ),
       ),
@@ -221,29 +378,32 @@ class _KesehatanScreenState extends State<KesehatanScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Kondisi Kesehatan Hari Ini',
+          '📊 Kondisi Kesehatan Hari Ini',
           style: TextStyle(
             fontWeight: FontWeight.w600,
             color: Colors.green,
           ),
         ),
         const SizedBox(height: 12),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
+
+        // Metrics Grid
+        GridView.count(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisCount: 2,
+          childAspectRatio: 2.5,
+          mainAxisSpacing: 8,
+          crossAxisSpacing: 8,
           children: [
-            _buildMetricItem('🩸', 'Tekanan Darah', kondisi.tekananDarah),
-            _buildMetricItem('❤️', 'Detak Jantung', '${kondisi.nadi} BPM'),
+            _buildMetricItem('🩸', 'Tekanan Darah', kondisi.tekananDarah ?? '-'),
+            _buildMetricItem('❤️', 'Nadi', kondisi.nadi != null ? '${kondisi.nadi} BPM' : '-'),
+            _buildMetricItem('🍽️', 'Nafsu Makan', kondisi.nafsuMakan ?? '-'),
+            _buildMetricItem('💊', 'Status Obat', kondisi.statusObat ?? '-'),
           ],
         ),
-        const SizedBox(height: 12),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            _buildMetricItem('🍽️', 'Nafsu Makan', kondisi.nafsuMakan),
-            _buildMetricItem('💊', 'Status Obat', kondisi.statusObat),
-          ],
-        ),
-        if (kondisi.catatan?.isNotEmpty ?? false) ...[
+
+        // Catatan jika ada
+        if (kondisi.catatan != null && kondisi.catatan!.isNotEmpty) ...[
           const SizedBox(height: 12),
           Container(
             width: double.infinity,
@@ -259,7 +419,7 @@ class _KesehatanScreenState extends State<KesehatanScreen> {
                   children: [
                     Icon(Icons.note, color: Colors.blue[700], size: 16),
                     const SizedBox(width: 8),
-                    Text(
+                     Text(
                       'Catatan Perawat',
                       style: TextStyle(
                         color: Colors.blue[700],
@@ -270,7 +430,7 @@ class _KesehatanScreenState extends State<KesehatanScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  kondisi.catatan ?? '',
+                  kondisi.catatan!,
                   style: TextStyle(
                     color: Colors.blue[800],
                     fontSize: 12,
@@ -280,6 +440,13 @@ class _KesehatanScreenState extends State<KesehatanScreen> {
             ),
           ),
         ],
+
+        // Tanggal pemeriksaan
+        const SizedBox(height: 12),
+        Text(
+          'Tanggal: ${kondisi.tanggal ?? '-'}',
+          style: TextStyle(color: Colors.grey[600], fontSize: 11),
+        ),
       ],
     );
   }
@@ -293,15 +460,25 @@ class _KesehatanScreenState extends State<KesehatanScreen> {
       ),
       child: Row(
         children: [
-          Icon(Icons.info, color: Colors.grey[500]),
+          Icon(Icons.info_outline, color: Colors.grey[500]),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              'Belum ada data kesehatan untuk hari ini',
-              style: TextStyle(
-                color: Colors.grey[600],
-                fontStyle: FontStyle.italic,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Belum ada data kesehatan untuk hari ini',
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Perawat belum melakukan pemeriksaan',
+                  style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                ),
+              ],
             ),
           ),
         ],
@@ -309,18 +486,39 @@ class _KesehatanScreenState extends State<KesehatanScreen> {
     );
   }
 
-  Widget _buildMetricItem(String icon, String title, String value) {
-    return Expanded(
+  Widget _buildMetricItem(String emoji, String title, String value) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.green[50],
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.green[100]!, width: 1),
+      ),
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(icon, style: const TextStyle(fontSize: 20)),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(emoji, style: const TextStyle(fontSize: 20)),
+              const SizedBox(width: 8),
+              Text(
+                value,
+                style:   TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.green[800],
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 4),
-          Text(title, style: const TextStyle(fontSize: 12, color: Colors.grey)),
           Text(
-            value,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
+            title,
+            style: TextStyle(
+              fontSize: 11,
+              color: Colors.green[700],
+              fontWeight: FontWeight.w500,
             ),
           ),
         ],
@@ -328,14 +526,18 @@ class _KesehatanScreenState extends State<KesehatanScreen> {
     );
   }
 
-  Color _getStatusColor(String? status) {
-    switch (status) {
-      case 'Stabil':
+  Color _getStatusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'stabil':
         return Colors.green;
-      case 'Perlu Perhatian':
+      case 'perlu perhatian':
         return Colors.orange;
-      default:
+      case 'kritis':
+        return Colors.red;
+      case 'belum diperiksa':
         return Colors.grey;
+      default:
+        return Colors.blue;
     }
   }
 }

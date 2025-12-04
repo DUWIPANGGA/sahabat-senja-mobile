@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:sahabatsenja_app/halaman/services/jadwal_aktivitas_service.dart';
+import 'package:sahabatsenja_app/services/jadwal_service.dart';
 import 'package:sahabatsenja_app/models/jadwal_aktivitas_model.dart';
+import 'package:intl/intl.dart';
 
 class JadwalKeluargaScreen extends StatefulWidget {
   const JadwalKeluargaScreen({super.key});
@@ -15,11 +16,11 @@ class _JadwalKeluargaScreenState extends State<JadwalKeluargaScreen> {
   final JadwalService _service = JadwalService();
 
   final List<String> _activityImages = [
-    'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400',
-    'https://images.unsplash.com/photo-1511379938547-c1f69419868d?w=400',
-    'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=400',
-    'https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=400',
-    'https://images.unsplash.com/photo-1534258936925-c58bed479fcb?w=400',
+    'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400', // Olahraga
+    'https://images.unsplash.com/photo-1511379938547-c1f69419868d?w=400', // Musik
+    'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=400', // Yoga
+    'https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=400', // Meditasi
+    'https://images.unsplash.com/photo-1534258936925-c58bed479fcb?w=400', // Seni
   ];
 
   @override
@@ -35,8 +36,20 @@ class _JadwalKeluargaScreenState extends State<JadwalKeluargaScreen> {
       setState(() => _list = data);
     } catch (e) {
       print('⚠️ Error: $e');
+      _showSnackbar('Gagal memuat jadwal: $e', isError: true);
     } finally {
       setState(() => _loading = false);
+    }
+  }
+
+  void _showSnackbar(String message, {bool isError = false}) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: isError ? Colors.red : Colors.green,
+        ),
+      );
     }
   }
 
@@ -77,13 +90,13 @@ class _JadwalKeluargaScreenState extends State<JadwalKeluargaScreen> {
           style: TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: _getResponsiveFontSize(context, 18),
-            color: Colors.white, // Diubah menjadi putih
+            color: Colors.white,
           ),
         ),
         backgroundColor: Colors.brown[700],
         elevation: 0,
         centerTitle: true,
-        iconTheme: const IconThemeData(color: Colors.white), // Icon back juga putih
+        iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: _loading
           ? const Center(
@@ -134,7 +147,7 @@ class _JadwalKeluargaScreenState extends State<JadwalKeluargaScreen> {
                       itemCount: _list.length,
                       itemBuilder: (context, index) {
                         final a = _list[index];
-                        final imageUrl = _getActivityImage(a.judul, index);
+                        final imageUrl = _getActivityImage(a, index);
                         return _buildActivityCard(a, imageUrl, context);
                       },
                     ),
@@ -157,15 +170,21 @@ class _JadwalKeluargaScreenState extends State<JadwalKeluargaScreen> {
     }
   }
 
-  String _getActivityImage(String judul, int index) {
-    if (judul.toLowerCase().contains('nyanyi') || judul.toLowerCase().contains('musik')) {
+  String _getActivityImage(JadwalAktivitas jadwal, int index) {
+    final namaAktivitas = jadwal.namaAktivitas.toLowerCase();
+    
+    if (namaAktivitas.contains('nyanyi') || namaAktivitas.contains('musik')) {
       return _activityImages[1];
-    } else if (judul.toLowerCase().contains('olahraga') || judul.toLowerCase().contains('senam')) {
+    } else if (namaAktivitas.contains('olahraga') || namaAktivitas.contains('senam')) {
       return _activityImages[0];
-    } else if (judul.toLowerCase().contains('yoga') || judul.toLowerCase().contains('meditasi')) {
+    } else if (namaAktivitas.contains('yoga') || namaAktivitas.contains('meditasi')) {
       return _activityImages[3];
-    } else if (judul.toLowerCase().contains('seni') || judul.toLowerCase().contains('lukis')) {
+    } else if (namaAktivitas.contains('seni') || namaAktivitas.contains('lukis') || namaAktivitas.contains('kerajinan')) {
       return _activityImages[4];
+    } else if (namaAktivitas.contains('masak') || namaAktivitas.contains('memasak') || namaAktivitas.contains('makan')) {
+      return 'https://images.unsplash.com/photo-1565958011703-44f9829ba187?w=400';
+    } else if (namaAktivitas.contains('obat') || namaAktivitas.contains('minum obat') || namaAktivitas.contains('kesehatan')) {
+      return 'https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=400';
     } else {
       return _activityImages[index % _activityImages.length];
     }
@@ -175,6 +194,10 @@ class _JadwalKeluargaScreenState extends State<JadwalKeluargaScreen> {
     final cardHeight = _getResponsiveSize(context, 160);
     final imageHeight = _getResponsiveSize(context, 50);
     
+    // Format tanggal dari createdAt atau gunakan hari
+    final displayDate = _getDisplayDate(a);
+    final displayTime = _formatJam(a.jam);
+
     return GestureDetector(
       onTap: () => _showDetail(a, imageUrl, context),
       child: Container(
@@ -294,10 +317,10 @@ class _JadwalKeluargaScreenState extends State<JadwalKeluargaScreen> {
                         
                         SizedBox(height: _getResponsiveSize(context, 4)),
                         
-                        // Judul aktivitas
+                        // Nama aktivitas
                         Expanded(
                           child: Text(
-                            a.judul,
+                            a.namaAktivitas,
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: _getResponsiveFontSize(context, 11),
@@ -311,64 +334,52 @@ class _JadwalKeluargaScreenState extends State<JadwalKeluargaScreen> {
                         
                         SizedBox(height: _getResponsiveSize(context, 2)),
                         
-                        // Informasi tanggal dan waktu
-                        _buildInfoRow(
-                          Icons.calendar_today,
-                          '${a.tanggal.toLocal().toString().split(' ')[0]}',
-                          context,
-                        ),
+                        // Hari
+                        if (a.hari != null && a.hari!.isNotEmpty)
+                          _buildInfoRow(
+                            Icons.calendar_today,
+                            a.hari!,
+                            context,
+                          ),
                         
                         SizedBox(height: _getResponsiveSize(context, 1)),
                         
+                        // Waktu
                         _buildInfoRow(
                           Icons.access_time,
-                          a.waktu,
+                          displayTime,
                           context,
                         ),
                         
-                        if (a.lokasi.isNotEmpty) ...[
-                          SizedBox(height: _getResponsiveSize(context, 1)),
-                          _buildInfoRow(
-                            Icons.location_on,
-                            a.lokasi,
-                            context,
-                            maxLines: 1,
+                        // Keterangan singkat
+                        if (a.keterangan != null && a.keterangan!.isNotEmpty)
+                          SizedBox(
+                            height: _getResponsiveSize(context, 20),
+                            child: Text(
+                              a.keterangan!,
+                              style: TextStyle(
+                                fontSize: _getResponsiveFontSize(context, 8),
+                                color: Colors.grey[600],
+                                fontStyle: FontStyle.italic,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
-                        ],
                         
-                        SizedBox(height: _getResponsiveSize(context, 2)),
+                        // Spacer
+                        const Spacer(),
                         
-                        // Footer dengan peserta
-                        if (a.peserta.isNotEmpty)
-                          Container(
-                            width: double.infinity,
-                            padding: EdgeInsets.symmetric(
-                              horizontal: _getResponsiveSize(context, 4), 
-                              vertical: _getResponsiveSize(context, 2),
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.7),
-                              borderRadius: BorderRadius.circular(_getResponsiveSize(context, 4)),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.people, 
-                                  size: _getResponsiveSize(context, 8), 
-                                  color: Colors.grey[600]
-                                ),
-                                SizedBox(width: _getResponsiveSize(context, 2)),
-                                Expanded(
-                                  child: Text(
-                                    a.peserta,
-                                    style: TextStyle(
-                                      fontSize: _getResponsiveFontSize(context, 7),
-                                      color: Colors.grey[600],
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ),
-                              ],
+                        // Tanggal dibuat
+                        if (a.createdAt != null)
+                          Align(
+                            alignment: Alignment.bottomRight,
+                            child: Text(
+                              DateFormat('dd/MM').format(a.createdAt!),
+                              style: TextStyle(
+                                fontSize: _getResponsiveFontSize(context, 7),
+                                color: Colors.grey[500],
+                              ),
                             ),
                           ),
                       ],
@@ -381,6 +392,39 @@ class _JadwalKeluargaScreenState extends State<JadwalKeluargaScreen> {
         ),
       ),
     );
+  }
+
+  String _getDisplayDate(JadwalAktivitas jadwal) {
+    if (jadwal.hari != null && jadwal.hari!.isNotEmpty) {
+      return jadwal.hari!;
+    } else if (jadwal.createdAt != null) {
+      return DateFormat('EEEE', 'id_ID').format(jadwal.createdAt!);
+    }
+    return '-';
+  }
+
+  String _formatJam(String jam) {
+    try {
+      // Format jam dari "HH:mm" ke format yang lebih user friendly
+      final parts = jam.split(':');
+      if (parts.length == 2) {
+        final hour = int.parse(parts[0]);
+        final minute = parts[1];
+        
+        if (hour < 12) {
+          return '$jam pagi';
+        } else if (hour < 15) {
+          return '$jam siang';
+        } else if (hour < 19) {
+          return '$jam sore';
+        } else {
+          return '$jam malam';
+        }
+      }
+      return jam;
+    } catch (e) {
+      return jam;
+    }
   }
 
   Widget _buildInfoRow(IconData icon, String text, BuildContext context, {int maxLines = 1}) {
@@ -410,6 +454,13 @@ class _JadwalKeluargaScreenState extends State<JadwalKeluargaScreen> {
   void _showDetail(JadwalAktivitas a, String imageUrl, BuildContext context) {
     final bottomSheetHeight = MediaQuery.of(context).size.height * 0.75;
     final imageHeight = _getResponsiveSize(context, 150);
+    
+    // Format data untuk ditampilkan
+    final displayHari = a.hari ?? '-';
+    final displayTime = _formatJam(a.jam);
+    final displayDate = a.createdAt != null 
+        ? DateFormat('dd MMMM yyyy', 'id_ID').format(a.createdAt!)
+        : '-';
     
     showModalBottomSheet(
       context: context,
@@ -502,7 +553,7 @@ class _JadwalKeluargaScreenState extends State<JadwalKeluargaScreen> {
                                 ),
                                 SizedBox(height: _getResponsiveSize(context, 8)),
                                 Text(
-                                  a.judul,
+                                  a.namaAktivitas,
                                   style: TextStyle(
                                     fontSize: _getResponsiveFontSize(context, 18),
                                     fontWeight: FontWeight.bold,
@@ -510,7 +561,7 @@ class _JadwalKeluargaScreenState extends State<JadwalKeluargaScreen> {
                                   ),
                                 ),
                                 SizedBox(height: _getResponsiveSize(context, 4)),
-                                // Tanggal dan waktu
+                                // Informasi hari dan waktu
                                 Row(
                                   children: [
                                     Icon(
@@ -520,7 +571,7 @@ class _JadwalKeluargaScreenState extends State<JadwalKeluargaScreen> {
                                     ),
                                     SizedBox(width: _getResponsiveSize(context, 4)),
                                     Text(
-                                      '${a.tanggal.toLocal().toString().split(' ')[0]}',
+                                      displayHari,
                                       style: TextStyle(
                                         color: Colors.white70, 
                                         fontSize: _getResponsiveFontSize(context, 11)
@@ -534,7 +585,7 @@ class _JadwalKeluargaScreenState extends State<JadwalKeluargaScreen> {
                                     ),
                                     SizedBox(width: _getResponsiveSize(context, 4)),
                                     Text(
-                                      a.waktu,
+                                      displayTime,
                                       style: TextStyle(
                                         color: Colors.white70, 
                                         fontSize: _getResponsiveFontSize(context, 11)
@@ -555,14 +606,62 @@ class _JadwalKeluargaScreenState extends State<JadwalKeluargaScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Deskripsi
-                          _buildDetailSection('Deskripsi', a.deskripsi, context),
-                          
-                          SizedBox(height: _getResponsiveSize(context, 16)),
+                          // Keterangan
+                          if (a.keterangan != null && a.keterangan!.isNotEmpty)
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Keterangan',
+                                  style: TextStyle(
+                                    fontSize: _getResponsiveFontSize(context, 14),
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.grey[800],
+                                  ),
+                                ),
+                                SizedBox(height: _getResponsiveSize(context, 6)),
+                                Text(
+                                  a.keterangan!,
+                                  style: TextStyle(
+                                    fontSize: _getResponsiveFontSize(context, 12),
+                                    color: Colors.grey[600],
+                                    height: 1.4,
+                                  ),
+                                ),
+                                SizedBox(height: _getResponsiveSize(context, 16)),
+                              ],
+                            ),
                           
                           // Informasi detail
-                          _buildDetailInfoItem(Icons.location_on, 'Lokasi', a.lokasi, context),
-                          _buildDetailInfoItem(Icons.people, 'Peserta', a.peserta, context),
+                          _buildDetailInfoItem(
+                            Icons.calendar_today, 
+                            'Hari', 
+                            displayHari, 
+                            context
+                          ),
+                          _buildDetailInfoItem(
+                            Icons.access_time, 
+                            'Waktu', 
+                            displayTime, 
+                            context
+                          ),
+                          
+                          // Informasi tambahan jika ada
+                          if (a.datalansiaId != null)
+                            _buildDetailInfoItem(
+                              Icons.person, 
+                              'ID Lansia', 
+                              a.datalansiaId.toString(), 
+                              context
+                            ),
+                          
+                          if (a.createdAt != null)
+                            _buildDetailInfoItem(
+                              Icons.date_range, 
+                              'Dibuat Pada', 
+                              displayDate, 
+                              context
+                            ),
                           
                           SizedBox(height: _getResponsiveSize(context, 20)),
                         ],
@@ -575,31 +674,6 @@ class _JadwalKeluargaScreenState extends State<JadwalKeluargaScreen> {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildDetailSection(String title, String content, BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: TextStyle(
-            fontSize: _getResponsiveFontSize(context, 14),
-            fontWeight: FontWeight.bold,
-            color: Colors.grey[800],
-          ),
-        ),
-        SizedBox(height: _getResponsiveSize(context, 6)),
-        Text(
-          content,
-          style: TextStyle(
-            fontSize: _getResponsiveFontSize(context, 12),
-            color: Colors.grey[600],
-            height: 1.4,
-          ),
-        ),
-      ],
     );
   }
 
