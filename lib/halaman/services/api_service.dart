@@ -1,8 +1,9 @@
 import 'dart:convert';
+
 import 'package:http/http.dart' as http;
 
 class ApiService {
-  static const String baseUrl = 'http://192.168.1.18:8000/api';
+  static const String baseUrl = 'http://192.168.1.43:8000/api';
 
   // 🔹 Header request (tanpa Authorization)
   Map<String, String> _getHeaders() {
