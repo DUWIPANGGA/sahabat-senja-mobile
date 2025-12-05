@@ -250,7 +250,7 @@ class _LoginScreenState extends State<LoginScreen> {
         
         if (response['status'] == 'success' && mounted) {
           print('✅ Auto-login berhasil');
-          if (role == 'admin') {
+          if (role == 'perawat') {
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(builder: (_) => HomePerawatScreen()),

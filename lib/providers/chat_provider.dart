@@ -1,8 +1,10 @@
 // providers/chat_provider.dart
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:sahabatsenja_app/models/chat_model.dart';
 import 'package:sahabatsenja_app/services/chat_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ChatProvider with ChangeNotifier {
   final ChatService _chatService = ChatService();
@@ -188,39 +190,57 @@ class ChatProvider with ChangeNotifier {
   }
 
   // Helper: Update conversation list
-  void _updateConversationList(int userId, ChatMessage message) {
-    final otherUserId = message.senderId == userId ? message.receiverId : message.senderId;
-   final otherUserName = (message.senderId == userId)
-    ? (message.receiver != null ? message.receiver!['name'] ?? 'Unknown' : 'Unknown')
-    : (message.sender != null ? message.sender!['name'] ?? 'Unknown' : 'Unknown');
-final otherUserRole = (message.senderId == userId)
-    ? (message.receiver != null ? message.receiver!['role'] ?? '' : '')
-    : (message.sender != null ? message.sender!['role'] ?? '' : '');
-
-    
-    final index = _conversations.indexWhere((conv) => conv.user['id'] == otherUserId);
-    
-    final conversation = ChatConversation(
-      user: {
-        'id': otherUserId,
-        'name': otherUserName,
-        'role': otherUserRole,
-      },
-      lastMessage: {
-        'message': message.message,
-        'time': message.timeFormatted,
-        'date': message.createdAt.toString(),
-      },
-      unreadCount: 0,
-      lastMessageTime: message.createdAt,
-    );
-    
-    if (index != -1) {
-      _conversations.removeAt(index);
-    }
-    _conversations.insert(0, conversation);
+// Helper: Update conversation list
+void _updateConversationList(int userId, ChatMessage message) {
+  // Determine the other user's ID
+  final currentUserId = message.senderId == userId ? message.receiverId : message.senderId;
+  final otherUserId = currentUserId == message.senderId ? message.receiverId : message.senderId;
+  
+  // Get user info safely
+  final otherUserInfo = message.senderId == otherUserId 
+      ? message.sender 
+      : message.receiver;
+  
+  // Safely extract user data with null checks
+  final Map<String, dynamic> userData = {
+    'id': otherUserId,
+    'name': otherUserInfo?['name']?.toString() ?? 'Unknown',
+    'role': otherUserInfo?['role']?.toString() ?? '',
+  };
+  
+  // Check if conversation already exists
+  final index = _conversations.indexWhere((conv) => conv.user['id'] == otherUserId);
+  
+  final conversation = ChatConversation(
+    user: userData,
+    lastMessage: {
+      'message': message.message,
+      'time': message.timeFormatted ?? '',
+      'date': message.createdAt.toString(),
+    },
+    unreadCount: message.senderId == otherUserId 
+        ? getUnreadCountForUser(otherUserId) + 1 
+        : 0,
+    lastMessageTime: message.createdAt,
+  );
+  
+  if (index != -1) {
+    _conversations.removeAt(index);
   }
-
+  
+  // Add to beginning of list
+  _conversations.insert(0, conversation);
+  
+  // Update unread count if message is from other user
+  if (message.senderId == otherUserId) {
+    final currentConvCount = _unreadCounts['conversations']?[otherUserId.toString()] ?? 0;
+    if (_unreadCounts['conversations'] == null) {
+      _unreadCounts['conversations'] = {};
+    }
+    _unreadCounts['conversations']![otherUserId.toString()] = currentConvCount + 1;
+    _unreadCounts['total_unread'] = (_unreadCounts['total_unread'] ?? 0) + 1;
+  }
+}
   // Load unread counts
   Future<void> loadUnreadCounts() async {
     try {
@@ -269,26 +289,48 @@ final otherUserRole = (message.senderId == userId)
   }
 
   // Add received message via WebSocket
-  void addReceivedMessage(ChatMessage message) {
-    final senderId = message.senderId;
-    
-    // Add to messages
-    _addMessageToLocalStore(senderId, message);
-    
-    // Update conversation list
-    _updateConversationList(senderId, message);
-    
-    // Update unread count
+// Add received message via WebSocket
+void addReceivedMessage(ChatMessage message) async{
+  final currentUserId = await _getCurrentUserId(); // You need to implement this
+  final isFromMe = message.senderId == currentUserId;
+  final otherUserId = isFromMe ? message.receiverId : message.senderId;
+  
+  // Add to messages
+  _addMessageToLocalStore(otherUserId, message);
+  
+  // Update conversation list
+  _updateConversationList(otherUserId, message);
+  
+  // Only increment unread count if message is NOT from me
+  if (!isFromMe) {
     final currentTotal = _unreadCounts['total_unread'] ?? 0;
     _unreadCounts['total_unread'] = currentTotal + 1;
     
-    final currentConvCount = _unreadCounts['conversations']?[senderId.toString()] ?? 0;
-    _unreadCounts['conversations']?[senderId.toString()] = currentConvCount + 1;
-    
-    notifyListeners();
+    final currentConvCount = _unreadCounts['conversations']?[otherUserId.toString()] ?? 0;
+    if (_unreadCounts['conversations'] == null) {
+      _unreadCounts['conversations'] = {};
+    }
+    _unreadCounts['conversations']![otherUserId.toString()] = currentConvCount + 1;
   }
+  
+  notifyListeners();
+}
 
-  // Mark messages as read for a user
+// Add this helper method to ChatProvider
+Future<int?> _getCurrentUserId() async {
+  try {
+    // You need to store current user ID when logging in
+    final prefs = await SharedPreferences.getInstance();
+    final userData = prefs.getString('user_data');
+    if (userData != null) {
+      final data = json.decode(userData);
+      return data['id'] as int?;
+    }
+    return null;
+  } catch (e) {
+    return null;
+  }
+}
   Future<void> markMessagesAsRead(int userId) async {
     try {
       await _chatService.markAsRead(userId);

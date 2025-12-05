@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:sahabatsenja_app/halaman/keluarga/biodata_screen.dart';
+import 'package:sahabatsenja_app/halaman/keluarga/chat_list_screen.dart';
+import 'package:sahabatsenja_app/halaman/keluarga/jadwal_aktifitas_screen.dart';
 import 'package:sahabatsenja_app/halaman/keluarga/kesehatan_screen.dart';
 import 'package:sahabatsenja_app/halaman/keluarga/transaction_screen.dart';
 import 'package:sahabatsenja_app/halaman/keluarga/donation_screen.dart';
 import 'package:sahabatsenja_app/halaman/keluarga/notification_screen.dart';
+import 'package:sahabatsenja_app/models/jadwal_aktivitas_model.dart' show JadwalAktivitas;
 import 'package:sahabatsenja_app/services/datalansia_service.dart';
+import 'package:sahabatsenja_app/services/jadwal_aktifitas_service.dart';
 import 'package:sahabatsenja_app/services/kondisi_service.dart';
 import 'package:sahabatsenja_app/services/keluarga_service.dart' hide DatalansiaService;
 import 'package:sahabatsenja_app/models/datalansia_model.dart';
@@ -24,7 +28,8 @@ class _HomeScreenState extends State<HomeScreen> {
   final DatalansiaService _datalansiaService = DatalansiaService();
   final KondisiService _kondisiService = KondisiService();
   final KeluargaService _keluargaService = KeluargaService();
-  
+  List<JadwalAktivitas> _jadwalAktivitas = [];
+
   int _notificationCount = 0;
   List<Datalansia> _lansiaList = [];
   List<KondisiHarian> _kondisiTerbaru = [];
@@ -59,7 +64,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
       // 2. Load kondisi terbaru
       if (_lansiaList.isNotEmpty) {
-        // Ambil kondisi untuk semua lansia
         for (var lansia in _lansiaList) {
           final kondisi = await _kondisiService.getTodayData(lansia.namaLansia ?? '');
           if (kondisi != null) {
@@ -67,14 +71,23 @@ class _HomeScreenState extends State<HomeScreen> {
           }
         }
         
-        // Hitung lansia stabil
         _lansiaStabil = _kondisiTerbaru.where((k) {
           final nadi = int.tryParse(k.nadi ?? '0') ?? 0;
           return nadi >= 60 && nadi <= 100;
         }).length;
       }
 
-      // 3. Hitung notifikasi (contoh: lansia perlu perhatian)
+      // 3. Load jadwal aktivitas hari ini
+      if (_lansiaList.isNotEmpty) {
+        try {
+          final jadwalService = JadwalAktivitasService();
+          _jadwalAktivitas = await jadwalService.getJadwalHariIni();
+        } catch (e) {
+          print('⚠️ Error loading jadwal: $e');
+        }
+      }
+
+      // 4. Hitung notifikasi
       _notificationCount = _totalLansia - _lansiaStabil;
 
     } catch (e) {
@@ -95,7 +108,6 @@ class _HomeScreenState extends State<HomeScreen> {
       context,
       MaterialPageRoute(builder: (context) => const BiodataLansiaScreen()),
     ).then((_) {
-      // Refresh data setelah kembali dari biodata
       _refreshData();
     });
   }
@@ -131,6 +143,41 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  void _navigateToChat(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const ChatListScreen()),
+    );
+  }
+
+  void _navigateToJadwal(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const JadwalAktivitasScreen()),
+    );
+  }
+
+  void _navigateToSettings(BuildContext context) {
+    // TODO: Implement settings screen
+  }
+
+  void _navigateToHelp(BuildContext context) {
+    // TODO: Implement help screen
+  }
+
+  Future<void> _refreshJadwal() async {
+    try {
+      final jadwalService = JadwalAktivitasService();
+      final jadwal = await jadwalService.getJadwalHariIni();
+      
+      setState(() {
+        _jadwalAktivitas = jadwal;
+      });
+    } catch (e) {
+      print('⚠️ Error refresh jadwal: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -154,6 +201,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   ] else ...[
                     _buildStatsSection(),
                     _buildQuickMenu(context),
+                    // Widget aktivitas akan muncul di sini jika ada jadwal
+                    if (_lansiaList.isNotEmpty) _buildAktivitasHariIni(),
                     if (_kondisiTerbaru.isNotEmpty) ...[
                       _buildRecentActivities(),
                     ],
@@ -525,11 +574,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     buttonSize,
                   ),
                   _buildMenuButton(
-                    'Donasi', 
-                    Icons.volunteer_activism_outlined, 
+                    'Chat', 
+                    Icons.chat_outlined, 
                     const Color(0xFFFF9800), 
-                    () => _navigateToDonation(context),
-                    'Berikan dukungan',
+                    () => _navigateToChat(context),
+                    'Chat dengan perawat',
                     buttonSize,
                   ),
                   _buildMenuButton(
@@ -538,6 +587,49 @@ class _HomeScreenState extends State<HomeScreen> {
                     const Color(0xFF9C27B0), 
                     () => _navigateToTransactions(context),
                     'Riwayat pembayaran',
+                    buttonSize,
+                  ),
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: 16),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final buttonSize = constraints.maxWidth / 4 - 16;
+              return Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _buildMenuButton(
+                    'Donasi', 
+                    Icons.volunteer_activism_outlined, 
+                    const Color(0xFFE91E63), 
+                    () => _navigateToDonation(context),
+                    'Berikan dukungan',
+                    buttonSize,
+                  ),
+                  _buildMenuButton(
+                    'Notifikasi', 
+                    Icons.notifications_outlined, 
+                    const Color(0xFF9C6223), 
+                    () => _navigateToNotifications(context),
+                    'Lihat pemberitahuan',
+                    buttonSize,
+                  ),
+                  _buildMenuButton(
+                    'Jadwal', 
+                    Icons.schedule_outlined, 
+                    const Color(0xFF009688), 
+                    () => _navigateToJadwal(context),
+                    'Kelola jadwal aktivitas',
+                    buttonSize,
+                  ),
+                  _buildMenuButton(
+                    'Pengaturan', 
+                    Icons.settings_outlined, 
+                    const Color(0xFF607D8B), 
+                    () => _navigateToSettings(context),
+                    'Pengaturan akun',
                     buttonSize,
                   ),
                 ],
@@ -584,6 +676,489 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildAktivitasHariIni() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF9C6223).withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.today_outlined,
+                      color: Color(0xFF9C6223),
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  const Text(
+                    'Aktivitas Lansia Hari Ini',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF333333),
+                    ),
+                  ),
+                ],
+              ),
+              PopupMenuButton<String>(
+                icon: Icon(Icons.more_vert, color: Colors.grey[600]),
+                onSelected: (value) {
+                  if (value == 'refresh') {
+                    _refreshJadwal();
+                  } else if (value == 'lihat_semua') {
+                    _navigateToJadwal(context);
+                  }
+                },
+                itemBuilder: (context) => [
+                  const PopupMenuItem(
+                    value: 'refresh',
+                    child: Row(
+                      children: [
+                        Icon(Icons.refresh, size: 18),
+                        SizedBox(width: 8),
+                        Text('Refresh'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'lihat_semua',
+                    child: Row(
+                      children: [
+                        Icon(Icons.list, size: 18),
+                        SizedBox(width: 8),
+                        Text('Lihat Semua'),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          
+          const SizedBox(height: 16),
+          
+          // Konten utama
+          if (_jadwalAktivitas.isEmpty)
+            _buildEmptyAktivitas()
+          else
+            Column(
+              children: [
+                // Progress Summary
+                _buildProgressSummary(),
+                const SizedBox(height: 16),
+                // List Aktivitas
+                _buildListAktivitas(),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProgressSummary() {
+    final totalAktivitas = _jadwalAktivitas.length;
+    final selesaiAktivitas = _jadwalAktivitas.where((a) => a.completed).length;
+    final progress = totalAktivitas > 0 ? selesaiAktivitas / totalAktivitas : 0;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8F9FA),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Progress Hari Ini',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey[700],
+                ),
+              ),
+              Text(
+                '${selesaiAktivitas}/$totalAktivitas selesai',
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF4CAF50),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          LinearProgressIndicator(
+            value: progress.toDouble(),
+            backgroundColor: Colors.grey[200],
+            color: const Color(0xFF4CAF50),
+            minHeight: 8,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildStatItem(
+                'Total',
+                totalAktivitas.toString(),
+                Icons.list_alt,
+                Colors.blue,
+              ),
+              _buildStatItem(
+                'Selesai',
+                selesaiAktivitas.toString(),
+                Icons.check_circle,
+                Colors.green,
+              ),
+              _buildStatItem(
+                'Belum',
+                (totalAktivitas - selesaiAktivitas).toString(),
+                Icons.pending,
+                Colors.orange,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatItem(String label, String value, IconData icon, Color color) {
+    return Column(
+      children: [
+        Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, color: color, size: 18),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+        ),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 10,
+            color: Colors.grey,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildListAktivitas() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Daftar Aktivitas',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: Colors.grey[700],
+          ),
+        ),
+        const SizedBox(height: 12),
+        ..._jadwalAktivitas.map((aktivitas) => _buildAktivitasItem(aktivitas)).toList(),
+        
+        // View all button jika lebih dari 3
+        if (_jadwalAktivitas.length > 3)
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: Align(
+              alignment: Alignment.center,
+              child: TextButton(
+                onPressed: () => _navigateToJadwal(context),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Lihat Semua Aktivitas',
+                      style: TextStyle(
+                        color: const Color(0xFF9C6223),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    const Icon(
+                      Icons.arrow_forward,
+                      size: 16,
+                      color: Color(0xFF9C6223),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildAktivitasItem(JadwalAktivitas aktivitas) {
+    final isCompleted = aktivitas.completed;
+    final time = aktivitas.jam;
+    final title = aktivitas.namaAktivitas;
+    final keterangan = aktivitas.keterangan;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isCompleted ? const Color(0xFFE8F5E8) : Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isCompleted 
+              ? const Color(0xFF4CAF50).withOpacity(0.2) 
+              : Colors.grey[200]!,
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Status indicator
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: isCompleted 
+                  ? const Color(0xFF4CAF50).withOpacity(0.1) 
+                  : Colors.orange.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: Icon(
+                isCompleted ? Icons.check : Icons.access_time,
+                color: isCompleted ? const Color(0xFF4CAF50) : Colors.orange,
+                size: 20,
+              ),
+            ),
+          ),
+          
+          const SizedBox(width: 12),
+          
+          // Content
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Time and Title row
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.blue[50],
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        time,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.blue[700],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: isCompleted ? Colors.grey[600] : const Color(0xFF333333),
+                          decoration: isCompleted ? TextDecoration.lineThrough : null,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+                
+                // Keterangan (jika ada)
+                if (keterangan != null && keterangan.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    keterangan,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey[600],
+                      fontStyle: FontStyle.italic,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+                
+                // Status and action
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isCompleted 
+                            ? const Color(0xFF4CAF50).withOpacity(0.1) 
+                            : Colors.orange.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        isCompleted ? 'Selesai' : 'Belum Selesai',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: isCompleted ? const Color(0xFF4CAF50) : Colors.orange,
+                        ),
+                      ),
+                    ),
+                    
+                    // Action buttons
+                    Row(
+                      children: [
+                        if (!isCompleted)
+                          GestureDetector(
+                            onTap: () {
+                              // TODO: Implement mark as completed
+                              print('Mark as completed: ${aktivitas.id}');
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: Colors.green.withOpacity(0.1),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                Icons.check,
+                                size: 16,
+                                color: Colors.green,
+                              ),
+                            ),
+                          ),
+                        const SizedBox(width: 8),
+                        GestureDetector(
+                          onTap: () {
+                            // TODO: Implement view details
+                            print('View details: ${aktivitas.id}');
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.withOpacity(0.1),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              Icons.visibility_outlined,
+                              size: 16,
+                              color: Colors.blue,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyAktivitas() {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 20),
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[200]!),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            Icons.schedule_outlined,
+            size: 60,
+            color: Colors.grey[400],
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'Belum ada aktivitas hari ini',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Tambahkan jadwal aktivitas untuk lansia',
+            style: TextStyle(
+              color: Colors.grey,
+              fontSize: 13,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
       ),
     );
   }
@@ -655,7 +1230,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Center(
               child: TextButton(
                 onPressed: () {
-                  // Navigasi ke screen kondisi lengkap
+                  // TODO: Navigasi ke screen kondisi lengkap
                 },
                 child: const Text(
                   'Lihat Semua Kondisi',

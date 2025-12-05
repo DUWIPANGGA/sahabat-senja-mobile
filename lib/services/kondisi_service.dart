@@ -1,4 +1,4 @@
-// lib/services/kondisi_service.dart
+// lib/services/kondisi_service.dart - PERBAIKAN HANYA getTodayData()
 import 'package:sahabatsenja_app/services/api_service.dart';
 import 'package:sahabatsenja_app/models/kondisi_model.dart';
 
@@ -41,22 +41,52 @@ class KondisiService {
     }
   }
 
-  /// 🔹 Ambil kondisi hari ini berdasarkan nama lansia
+  /// 🔹 PERBAIKAN: Ambil kondisi hari ini berdasarkan nama lansia
   Future<KondisiHarian?> getTodayData(String namaLansia) async {
     try {
       final today = DateTime.now();
       final tanggal = "${today.year}-${today.month.toString().padLeft(2,'0')}-${today.day.toString().padLeft(2,'0')}";
       
+      print('🌐 Fetching kondisi hari ini untuk $namaLansia pada $tanggal');
+      
       final response = await _api.get('kondisi/today/$namaLansia/$tanggal');
       
+      print('📥 Response status: ${response['status']}');
+      print('📥 Response data type: ${response['data']?.runtimeType}');
+      
       if (response['status'] == 'success') {
-        return KondisiHarian.fromJson(response['data']);
+        final data = response['data'];
+        
+        // Jika data null atau kosong
+        if (data == null) {
+          print('⚠️ Data kosong untuk $namaLansia hari ini');
+          return null;
+        }
+        
+        // Jika data berupa List
+        if (data is List) {
+          if (data.isEmpty) {
+            print('📭 List data kosong');
+            return null;
+          }
+          print('✅ Data ditemukan (List dengan ${data.length} item)');
+          return KondisiHarian.fromJson(data[0]);
+        }
+        
+        // Jika data berupa Map
+        if (data is Map<String, dynamic>) {
+          print('✅ Data ditemukan (Map)');
+          return KondisiHarian.fromJson(data);
+        }
+        
+        print('❌ Format data tidak dikenali: ${data.runtimeType}');
+        return null;
       } else {
-        print('⚠️ Tidak ada data hari ini: ${response['message']}');
+        print('⚠️ API error: ${response['message']}');
         return null;
       }
     } catch (e) {
-      print('⚠️ Error getTodayData: $e');
+      print('❌ Error getTodayData: $e');
       return null;
     }
   }
@@ -112,6 +142,81 @@ class KondisiService {
     } catch (e) {
       print('⚠️ Error getKondisiByKeluarga: $e');
       return [];
+    }
+  }
+
+  /// 🔹 Tambahkan method ini pada kondisi_service.dart
+  Future<List<KondisiHarian>> getRiwayatByNamaLansia(String namaLansia) async {
+    try {
+      final response = await _api.get('kondisi/lansia/$namaLansia');
+      
+      if (response['status'] == 'success') {
+        final List<dynamic> data = response['data'];
+        return data.map((json) => KondisiHarian.fromJson(json)).toList();
+      } else {
+        throw Exception('Gagal memuat riwayat: ${response['message']}');
+      }
+    } catch (e) {
+      print('❌ Error getRiwayatByNamaLansia: $e');
+      rethrow;
+    }
+  }
+
+  /// 🔹 METHOD BARU: Get today data dengan fallback (tanpa mengubah yang lama)
+  Future<KondisiHarian?> getTodayDataWithFallback(String namaLansia) async {
+    try {
+      // Coba method original
+      final data = await getTodayData(namaLansia);
+      if (data != null) return data;
+      
+      // Jika gagal, coba alternatif endpoint
+      return await _getTodayDataAlternative(namaLansia);
+    } catch (e) {
+      print('⚠️ Error getTodayDataWithFallback: $e');
+      return null;
+    }
+  }
+
+  /// 🔹 METHOD PRIVATE: Alternatif untuk get today data
+  Future<KondisiHarian?> _getTodayDataAlternative(String namaLansia) async {
+    try {
+      final today = DateTime.now();
+      final tanggal = "${today.year}-${today.month.toString().padLeft(2,'0')}-${today.day.toString().padLeft(2,'0')}";
+      
+      // Coba endpoint yang berbeda
+      final response = await _api.get('kondisi?tanggal=$tanggal&nama_lansia=$namaLansia');
+      
+      if (response['status'] == 'success') {
+        final data = response['data'];
+        
+        if (data is List && data.isNotEmpty) {
+          return KondisiHarian.fromJson(data[0]);
+        }
+        
+        if (data is Map<String, dynamic>) {
+          return KondisiHarian.fromJson(data);
+        }
+      }
+      
+      return null;
+    } catch (e) {
+      print('⚠️ Error _getTodayDataAlternative: $e');
+      return null;
+    }
+  }
+
+  /// 🔹 METHOD BARU: Debug API response
+  Future<void> debugEndpoint(String endpoint) async {
+    try {
+      print('🔍 Debug endpoint: $endpoint');
+      final response = await _api.get(endpoint);
+      print('🔍 Response:');
+      print('  Status: ${response['status']}');
+      print('  Message: ${response['message']}');
+      print('  Data type: ${response['data']?.runtimeType}');
+      print('  Data: ${response['data']}');
+    } catch (e) {
+      print('❌ Debug error: $e');
     }
   }
 }

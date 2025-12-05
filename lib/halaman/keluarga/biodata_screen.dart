@@ -13,8 +13,12 @@ class BiodataLansiaScreen extends StatefulWidget {
 class _BiodataLansiaScreenState extends State<BiodataLansiaScreen> {
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
+  bool _isLoadingList = false;
+  bool _isFormVisible = false;
   String? _userEmail;
   String? _userName;
+  List<Datalansia> _lansiaList = [];
+  Datalansia? _selectedLansia; // Untuk mode edit
 
   final TextEditingController _namaController = TextEditingController();
   final TextEditingController _tempatLahirController = TextEditingController();
@@ -34,6 +38,7 @@ class _BiodataLansiaScreenState extends State<BiodataLansiaScreen> {
   void initState() {
     super.initState();
     _loadUserData();
+    _loadLansiaList();
   }
 
   Future<void> _loadUserData() async {
@@ -50,6 +55,23 @@ class _BiodataLansiaScreenState extends State<BiodataLansiaScreen> {
     }
   }
 
+  Future<void> _loadLansiaList() async {
+    setState(() => _isLoadingList = true);
+    try {
+      if (_userEmail != null && _userEmail!.isNotEmpty) {
+        final data = await DatalansiaService().getDatalansiaByKeluarga(_userEmail!);
+        setState(() {
+          _lansiaList = data;
+        });
+        print('📋 Loaded ${data.length} lansia');
+      }
+    } catch (e) {
+      print('❌ Error loading lansia list: $e');
+    } finally {
+      setState(() => _isLoadingList = false);
+    }
+  }
+
   void _calculateAge() {
     if (_selectedDate != null) {
       final now = DateTime.now();
@@ -60,6 +82,67 @@ class _BiodataLansiaScreenState extends State<BiodataLansiaScreen> {
       
       _umurController.text = calculatedAge.toString();
     }
+  }
+
+  void _showForm({Datalansia? lansia}) {
+    _clearForm();
+    
+    if (lansia != null) {
+      _selectedLansia = lansia;
+      
+      // Isi form dengan data lansia
+      _namaController.text = lansia.namaLansia ?? '';
+      _tempatLahirController.text = lansia.tempatLahirLansia ?? '';
+      _golDarahController.text = lansia.golDarahLansia ?? '';
+      _riwayatController.text = lansia.riwayatPenyakitLansia ?? '';
+      _alergiController.text = lansia.alergiLansia ?? '';
+      _obatController.text = lansia.obatRutinLansia ?? '';
+      _noHpController.text = lansia.noHpAnak ?? '';
+      _alamatController.text = lansia.alamatLengkap ?? '';
+      _jenisKelamin = lansia.jenisKelaminLansia;
+      
+      // Tanggal lahir
+      if (lansia.tanggalLahirLansia != null) {
+        final dateParts = lansia.tanggalLahirLansia!.split('-');
+        if (dateParts.length == 3) {
+          final year = int.tryParse(dateParts[0]);
+          final month = int.tryParse(dateParts[1]);
+          final day = int.tryParse(dateParts[2]);
+          
+          if (year != null && month != null && day != null) {
+            _selectedDate = DateTime(year, month, day);
+            _tanggalLahirController.text = '$day/$month/$year';
+            _calculateAge();
+          }
+        }
+      }
+    }
+    
+    setState(() => _isFormVisible = true);
+  }
+
+  void _clearForm() {
+    _selectedLansia = null;
+    _selectedDate = null;
+    _jenisKelamin = null;
+    
+    _namaController.clear();
+    _tempatLahirController.clear();
+    _tanggalLahirController.clear();
+    _umurController.clear();
+    _golDarahController.clear();
+    _riwayatController.clear();
+    _alergiController.clear();
+    _obatController.clear();
+    _noHpController.clear();
+    _alamatController.clear();
+    
+    _formKey.currentState?.reset();
+  }
+
+  void _hideForm() {
+    _clearForm();
+    setState(() => _isFormVisible = false);
   }
 
   Future<void> _submitForm() async {
@@ -73,6 +156,7 @@ class _BiodataLansiaScreenState extends State<BiodataLansiaScreen> {
 
         // Buat objek Datalansia dengan data dari form
         final datalansia = Datalansia(
+          id: _selectedLansia?.id,
           namaLansia: _namaController.text,
           tanggalLahirLansia:
               "${_selectedDate!.year}-${_selectedDate!.month.toString().padLeft(2, '0')}-${_selectedDate!.day.toString().padLeft(2, '0')}",
@@ -84,31 +168,37 @@ class _BiodataLansiaScreenState extends State<BiodataLansiaScreen> {
           alergiLansia: _alergiController.text,
           obatRutinLansia: _obatController.text,
           alamatLengkap: _alamatController.text,
-          // Data keluarga diambil dari user yang login
           namaAnak: _userName ?? 'Tidak diketahui',
-          noHpAnak: _noHpController.text, // Bisa kosong atau tambahkan field
-          emailAnak: _userEmail!, // User email sebagai default
+          noHpAnak: _noHpController.text,
+          emailAnak: _userEmail!,
         );
 
         print('📤 Data yang akan dikirim:');
         print(datalansia.toJson());
 
-        // Panggil service untuk create data
-        final created = await DatalansiaService().createDatalansia(datalansia);
+        bool success;
+        if (_selectedLansia != null) {
+          // Update mode
+          await DatalansiaService().updateDatalansia(_selectedLansia!.id!, datalansia);
+          success = true;
+        } else {
+          // Create mode
+          await DatalansiaService().createDatalansia(datalansia);
+          success = true;
+        }
 
-        if (mounted) {
+        if (success && mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('✅ Biodata ${created.namaLansia} berhasil disimpan!'),
+              content: Text('✅ Biodata ${datalansia.namaLansia} berhasil ${_selectedLansia != null ? 'diperbarui' : 'disimpan'}!'),
               backgroundColor: Colors.green,
               behavior: SnackBarBehavior.floating,
             ),
           );
           
-          // Tunggu 1.5 detik sebelum kembali
-          await Future.delayed(const Duration(milliseconds: 1500));
-          
-          Navigator.pop(context, true); // Return true untuk refresh data
+          // Refresh list dan reset form
+          await _loadLansiaList();
+          _hideForm();
         }
       } catch (e) {
         if (mounted) {
@@ -145,171 +235,536 @@ class _BiodataLansiaScreenState extends State<BiodataLansiaScreen> {
     }
   }
 
+  Future<void> _deleteLansia(Datalansia lansia) async {
+    final confirmed = await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Konfirmasi Hapus'),
+        content: Text('Apakah Anda yakin ingin menghapus data ${lansia.namaLansia}?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Hapus'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        final success = await DatalansiaService().deleteDatalansia(lansia.id!);
+        
+        if (success && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('✅ Data ${lansia.namaLansia} berhasil dihapus!'),
+              backgroundColor: Colors.green,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+          
+          await _loadLansiaList();
+        }
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ Gagal menghapus: $e'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Form Biodata Lansia'),
+        title: Text(_isFormVisible ? 'Form Biodata Lansia' : 'Daftar Lansia'),
         backgroundColor: const Color(0xFF9C6223),
         foregroundColor: Colors.white,
         elevation: 0,
+        actions: [
+          if (!_isFormVisible)
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: _loadLansiaList,
+              tooltip: 'Refresh',
+            ),
+        ],
       ),
       body: Container(
         color: const Color(0xFFFFF9F5),
         child: Stack(
           children: [
             SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // 🔹 User Info Card
-                    if (_userEmail != null || _userName != null)
-                      Container(
-                        margin: const EdgeInsets.only(bottom: 16),
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.blue[50],
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.blue.shade100),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.person, color: Colors.blue, size: 24),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  if (_userName != null)
-                                    Text(
-                                      _userName!,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                  if (_userEmail != null)
-                                    Text(
-                                      _userEmail!,
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  const SizedBox(height: 4),
-                                  const Text(
-                                    'Data lansia akan terhubung dengan akun Anda',
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      color: Colors.grey,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                    // Header Section
-                    _buildHeaderSection(),
-                    const SizedBox(height: 24),
-                    
-                    // Data Lansia Section
-                    _buildSectionHeader('Data Lansia'),
-                    const SizedBox(height: 16),
-                    
-                    _buildTextField(_namaController, 'Nama Lengkap Lansia', Icons.person_outlined),
-                    const SizedBox(height: 16),
-                    
-                    _buildTextField(_tempatLahirController, 'Tempat Lahir', Icons.location_city_outlined),
-                    const SizedBox(height: 16),
-                    
-                    _buildDateField(),
-                    const SizedBox(height: 16),
-                    
-                    _buildTextField(_umurController, 'Umur', Icons.cake_outlined, 
-                      keyboardType: TextInputType.number, readOnly: true),
-                    const SizedBox(height: 16),
-                    
-                    _buildDropdown('Jenis Kelamin', _jenisKelamin, ['Laki-laki', 'Perempuan'], (val) {
-                      setState(() => _jenisKelamin = val);
-                    }),
-                    const SizedBox(height: 16),
-                    
-                    _buildTextField(_golDarahController, 'Golongan Darah', Icons.bloodtype_outlined),
-                    const SizedBox(height: 16),
-                    
-                    _buildExpandableTextField(_riwayatController, 'Riwayat Penyakit', Icons.medical_services_outlined),
-                    const SizedBox(height: 16),
-                    
-                    _buildExpandableTextField(_alergiController, 'Alergi', Icons.warning_outlined),
-                    const SizedBox(height: 16),
-
-                    _buildTextField(_noHpController, 'Nomor HP Anak', Icons.phone_outlined,
-                      keyboardType: TextInputType.phone),
-                    const SizedBox(height: 16),
-                    
-                    _buildExpandableTextField(_obatController, 'Obat Rutin', Icons.medication_outlined),
-                    const SizedBox(height: 24),
-
-                    // Data Keluarga Section (Info only - tidak bisa diubah)
-                    _buildSectionHeader('Data Keluarga Penanggung Jawab'),
-                    const SizedBox(height: 16),
-                    
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[50],
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.grey.shade200),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildReadOnlyField('Nama Penanggung Jawab', _userName ?? 'Belum terdeteksi'),
-                          const SizedBox(height: 12),
-                          _buildReadOnlyField('Email Penanggung Jawab', _userEmail ?? 'Belum terdeteksi'),
-                          const SizedBox(height: 12),
-                          Text(
-                            '📌 Data keluarga diambil otomatis dari akun Anda',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey,
-                              fontStyle: FontStyle.italic,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    
-                    const SizedBox(height: 16),
-                    
-                    _buildExpandableTextField(_alamatController, 'Alamat Tempat Tinggal Lansia', Icons.home_outlined),
-                    const SizedBox(height: 30),
-
-                    // Submit Button
-                    _buildSubmitButton(),
-                    const SizedBox(height: 20),
-                  ],
-                ),
-              ),
+              child: _isFormVisible 
+                  ? _buildFormContent()
+                  : _buildListContent(),
             ),
             
             // Loading overlay
-            if (_isLoading)
+            if (_isLoading || _isLoadingList)
               Container(
-                color: Colors.black.withOpacity(0.5),
+                color: Colors.black.withOpacity(0.3),
                 child: const Center(
                   child: CircularProgressIndicator(
                     valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF9C6223)),
                   ),
                 ),
               ),
+          ],
+        ),
+      ),
+      floatingActionButton: _isFormVisible ? null : FloatingActionButton(
+        onPressed: () => _showForm(),
+        backgroundColor: const Color(0xFF9C6223),
+        foregroundColor: Colors.white,
+        child: const Icon(Icons.add),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFormContent() {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header Section
+            _buildHeaderSection(),
+            const SizedBox(height: 24),
+            
+            // Data Lansia Section
+            _buildSectionHeader('Data Lansia'),
+            const SizedBox(height: 16),
+            
+            _buildTextField(_namaController, 'Nama Lengkap Lansia', Icons.person_outlined),
+            const SizedBox(height: 16),
+            
+            _buildTextField(_tempatLahirController, 'Tempat Lahir', Icons.location_city_outlined),
+            const SizedBox(height: 16),
+            
+            _buildDateField(),
+            const SizedBox(height: 16),
+            
+            _buildTextField(_umurController, 'Umur', Icons.cake_outlined, 
+              keyboardType: TextInputType.number, readOnly: true),
+            const SizedBox(height: 16),
+            
+            _buildDropdown('Jenis Kelamin', _jenisKelamin, ['Laki-laki', 'Perempuan'], (val) {
+              setState(() => _jenisKelamin = val);
+            }),
+            const SizedBox(height: 16),
+            
+            _buildTextField(_golDarahController, 'Golongan Darah', Icons.bloodtype_outlined),
+            const SizedBox(height: 16),
+            
+            _buildExpandableTextField(_riwayatController, 'Riwayat Penyakit', Icons.medical_services_outlined),
+            const SizedBox(height: 16),
+            
+            _buildExpandableTextField(_alergiController, 'Alergi', Icons.warning_outlined),
+            const SizedBox(height: 16),
+
+            _buildTextField(_noHpController, 'Nomor HP Anak', Icons.phone_outlined,
+              keyboardType: TextInputType.phone),
+            const SizedBox(height: 16),
+            
+            _buildExpandableTextField(_obatController, 'Obat Rutin', Icons.medication_outlined),
+            const SizedBox(height: 24),
+
+            // Data Keluarga Section (Info only - tidak bisa diubah)
+            _buildSectionHeader('Data Keluarga Penanggung Jawab'),
+            const SizedBox(height: 16),
+            
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.grey[50],
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade200),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildReadOnlyField('Nama Penanggung Jawab', _userName ?? 'Belum terdeteksi'),
+                  const SizedBox(height: 12),
+                  _buildReadOnlyField('Email Penanggung Jawab', _userEmail ?? 'Belum terdeteksi'),
+                  const SizedBox(height: 12),
+                  Text(
+                    '📌 Data keluarga diambil otomatis dari akun Anda',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            
+            const SizedBox(height: 16),
+            
+            _buildExpandableTextField(_alamatController, 'Alamat Tempat Tinggal Lansia', Icons.home_outlined),
+            const SizedBox(height: 30),
+
+            // Action Buttons
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: _hideForm,
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      side: const BorderSide(color: Color(0xFF9C6223)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text(
+                      'BATAL',
+                      style: TextStyle(
+                        color: Color(0xFF9C6223),
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: _isLoading ? null : _submitForm,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF9C6223),
+                      foregroundColor: Colors.white,
+                      elevation: 2,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                    ),
+                    child: _isLoading
+                        ? const SizedBox(
+                            height: 24,
+                            width: 24,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
+                          )
+                        : Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(_selectedLansia != null ? Icons.edit : Icons.save_alt_outlined, size: 20),
+                              const SizedBox(width: 8),
+                              Text(
+                                _selectedLansia != null ? 'UPDATE' : 'SIMPAN',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildListContent() {
+    if (_isLoadingList) {
+      return const Center(
+        child: CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF9C6223)),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header Section
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  const Color(0xFF9C6223).withOpacity(0.1),
+                  const Color(0xFF9C6223).withOpacity(0.05),
+              ],
+              ),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFF9C6223).withOpacity(0.2)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF9C6223).withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.group, color: Color(0xFF9C6223), size: 24),
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Text(
+                        'Daftar Lansia Terhubung',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF9C6223),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  _lansiaList.isEmpty 
+                    ? 'Belum ada data lansia yang terhubung dengan akun Anda'
+                    : 'Total ${_lansiaList.length} lansia terhubung',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // List of Lansia
+          if (_lansiaList.isEmpty)
+            _buildEmptyState()
+          else
+            ..._lansiaList.map((lansia) => _buildLansiaCard(lansia)).toList(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Container(
+      padding: const EdgeInsets.all(40),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Icon(
+            Icons.people_outline,
+            size: 80,
+            color: Colors.grey[300],
+          ),
+          const SizedBox(height: 20),
+          const Text(
+            'Belum Ada Data Lansia',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey,
+            ),
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'Tambahkan data lansia terlebih dahulu untuk memantau kesehatan mereka',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.grey,
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 20),
+          ElevatedButton(
+            onPressed: () => _showForm(),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF9C6223),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.add, size: 18),
+                SizedBox(width: 8),
+                Text('Tambah Lansia'),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLansiaCard(Datalansia lansia) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF9C6223).withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    lansia.jenisKelaminLansia == 'Laki-laki' 
+                      ? Icons.male 
+                      : Icons.female,
+                    color: const Color(0xFF9C6223),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        lansia.namaLansia ?? 'Tanpa Nama',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF5D4037),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${lansia.umurLansia ?? '-'} tahun • ${lansia.jenisKelaminLansia ?? '-'} • ${lansia.golDarahLansia ?? '-'}',
+                        style: const TextStyle(
+                          color: Colors.grey,
+                          fontSize: 13,
+                        ),
+                      ),
+                      if (lansia.alamatLengkap != null && lansia.alamatLengkap!.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(
+                            lansia.alamatLengkap!,
+                            style: const TextStyle(
+                              color: Colors.grey,
+                              fontSize: 12,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            
+            // Additional Info
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                if (lansia.riwayatPenyakitLansia != null && lansia.riwayatPenyakitLansia!.isNotEmpty)
+                  Chip(
+                    label: Text(lansia.riwayatPenyakitLansia!),
+                    backgroundColor: Colors.blue[50],
+                    labelStyle: const TextStyle(fontSize: 11),
+                  ),
+                if (lansia.alergiLansia != null && lansia.alergiLansia!.isNotEmpty)
+                  Chip(
+                    label: Text(lansia.alergiLansia!),
+                    backgroundColor: Colors.orange[50],
+                    labelStyle: const TextStyle(fontSize: 11),
+                  ),
+                if (lansia.obatRutinLansia != null && lansia.obatRutinLansia!.isNotEmpty)
+                  Chip(
+                    label: Text(lansia.obatRutinLansia!),
+                    backgroundColor: Colors.green[50],
+                    labelStyle: const TextStyle(fontSize: 11),
+                  ),
+              ],
+            ),
+            
+            const SizedBox(height: 12),
+            const Divider(height: 1),
+            const SizedBox(height: 12),
+            
+            // Action Buttons
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: () => _showForm(lansia: lansia),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Color(0xFF9C6223)),
+                  ),
+                  icon: const Icon(Icons.edit, size: 16),
+                  label: const Text('Edit'),
+                ),
+                const SizedBox(width: 8),
+                OutlinedButton.icon(
+                  onPressed: () => _deleteLansia(lansia),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Colors.red),
+                  ),
+                  icon: const Icon(Icons.delete, size: 16, color: Colors.red),
+                  label: const Text('Hapus', style: TextStyle(color: Colors.red)),
+                ),
+              ],
+            ),
           ],
         ),
       ),
@@ -343,13 +798,17 @@ class _BiodataLansiaScreenState extends State<BiodataLansiaScreen> {
                   color: const Color(0xFF9C6223).withOpacity(0.1),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.person_add_alt_1, color: Color(0xFF9C6223), size: 24),
+                child: Icon(
+                  _selectedLansia != null ? Icons.edit : Icons.person_add_alt_1,
+                  color: const Color(0xFF9C6223),
+                  size: 24,
+                ),
               ),
               const SizedBox(width: 12),
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'Tambah Data Lansia',
-                  style: TextStyle(
+                  _selectedLansia != null ? 'Edit Data Lansia' : 'Tambah Data Lansia',
+                  style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                     color: Color(0xFF9C6223),
@@ -359,9 +818,11 @@ class _BiodataLansiaScreenState extends State<BiodataLansiaScreen> {
             ],
           ),
           const SizedBox(height: 8),
-          const Text(
-            'Data lansia akan otomatis terhubung dengan akun Anda sebagai penanggung jawab',
-            style: TextStyle(
+          Text(
+            _selectedLansia != null
+              ? 'Perbarui data lansia ${_selectedLansia?.namaLansia}'
+              : 'Data lansia akan otomatis terhubung dengan akun Anda sebagai penanggung jawab',
+            style: const TextStyle(
               fontSize: 14,
               color: Colors.grey,
             ),
@@ -559,48 +1020,6 @@ class _BiodataLansiaScreenState extends State<BiodataLansiaScreen> {
     );
   }
 
-  Widget _buildSubmitButton() {
-    return SizedBox(
-      width: double.infinity,
-      height: 54,
-      child: ElevatedButton(
-        onPressed: _isLoading ? null : _submitForm,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF9C6223),
-          foregroundColor: Colors.white,
-          elevation: 2,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          padding: const EdgeInsets.symmetric(vertical: 16),
-        ),
-        child: _isLoading
-            ? const SizedBox(
-                height: 24,
-                width: 24,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                ),
-              )
-            : const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.save_alt_outlined, size: 20),
-                  SizedBox(width: 8),
-                  Text(
-                    'SIMPAN BIODATA',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-      ),
-    );
-  }
-
   Future<void> _selectDate(BuildContext context) async {
     final picked = await showDatePicker(
       context: context,
@@ -642,8 +1061,7 @@ class _BiodataLansiaScreenState extends State<BiodataLansiaScreen> {
     _riwayatController.dispose();
     _alergiController.dispose();
     _obatController.dispose();
-        _noHpController.dispose();
-
+    _noHpController.dispose();
     _alamatController.dispose();
     super.dispose();
   }

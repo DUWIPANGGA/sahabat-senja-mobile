@@ -78,12 +78,12 @@ class _SplashScreenState extends State<SplashScreen> {
   /// 🔹 Navigasi ke halaman sesuai role
   void _navigateToHomeScreen(String role, String userName) {
     Widget targetScreen;
-    
-    if (role == 'admin') {
-      targetScreen = const HomePerawatScreen();
-    } else {
       targetScreen = HomeScreen(namaKeluarga: userName);
-    }
+    
+    // if (role == 'perawat') {
+    //   targetScreen = const HomePerawatScreen();
+    // } else {
+    // }
     
     Navigator.pushReplacement(
       context,
