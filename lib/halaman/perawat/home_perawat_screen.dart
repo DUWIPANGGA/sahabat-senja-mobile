@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:sahabatsenja_app/halaman/perawat/kondisi_main_screen.dart';
 import 'package:sahabatsenja_app/halaman/perawat/list_chat_perawat_screen.dart';
 import 'package:sahabatsenja_app/halaman/perawat/pilih_lansia_jadwal_obat_screen.dart';
 import 'package:sahabatsenja_app/providers/chat_provider.dart';
@@ -492,7 +493,7 @@ class _HomePerawatScreenState extends State<HomePerawatScreen>
                         _buildMenuItem(
                           Icons.favorite_outline,
                           'Kondisi Lansia',
-                          const KondisiLansiaScreen(),
+                          const KondisiMainScreen(),
                           1,
                         ),
                       ]),

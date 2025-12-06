@@ -5,37 +5,43 @@ import 'package:http/http.dart' as http;
 import 'package:sahabatsenja_app/models/chat_model.dart';
 import 'package:sahabatsenja_app/services/api_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:intl/intl.dart';
 
 class ChatService {
-  static const String baseUrl = ApiService.baseUrl;
-  final ApiService _apiService = ApiService();
+  final ApiService _api = ApiService();
 
-  /// Get all conversations
+  /// 🔹 Get all conversations
   Future<List<ChatConversation>> getConversations() async {
     try {
-      final response = await _apiService.get('chat/conversations');
+      final response = await _api.get('chat/conversations');
+      
+      print('📥 Conversations response: ${response.toString()}');
       
       if (response['status'] == 'success') {
         final List<dynamic> data = response['data'];
         return data.map((e) => ChatConversation.fromJson(e)).toList();
       } else {
-        throw Exception('Failed to get conversations: ${response['message']}');
+        throw Exception('Gagal mengambil percakapan: ${response['message']}');
       }
     } catch (e) {
-      print('⚠️ Error getConversations: $e');
+      print('❌ Error getConversations: $e');
       rethrow;
     }
   }
 
-  /// Get messages with a user
+  /// 🔹 Get messages between users
   Future<Map<String, dynamic>> getMessages(int userId, {int page = 1}) async {
     try {
-      final response = await _apiService.get('chat/messages/$userId?page=$page');
+      final response = await _api.get('chat/messages/$userId?page=$page');
       
       if (response['status'] == 'success') {
         final data = response['data'];
+        
+        // Format messages
         final messages = (data['messages'] as List)
             .map((e) => ChatMessage.fromJson(e))
+            .toList()
+            .reversed
             .toList();
         
         return {
@@ -44,21 +50,21 @@ class ChatService {
           'pagination': data['pagination'],
         };
       } else {
-        throw Exception('Failed to get messages: ${response['message']}');
+        throw Exception('Gagal mengambil pesan: ${response['message']}');
       }
     } catch (e) {
-      print('⚠️ Error getMessages: $e');
+      print('❌ Error getMessages: $e');
       rethrow;
     }
   }
 
-  /// Send text message
+  /// 🔹 Send text message
   Future<ChatMessage> sendTextMessage({
     required int receiverId,
     required String message,
   }) async {
     try {
-      final response = await _apiService.post('chat/send', {
+      final response = await _api.post('chat/send', {
         'receiver_id': receiverId,
         'message': message,
         'type': 'text',
@@ -67,67 +73,74 @@ class ChatService {
       if (response['status'] == 'success') {
         return ChatMessage.fromJson(response['data']);
       } else {
-        throw Exception('Failed to send message: ${response['message']}');
+        throw Exception('Gagal mengirim pesan: ${response['message']}');
       }
     } catch (e) {
-      print('⚠️ Error sendTextMessage: $e');
+      print('❌ Error sendTextMessage: $e');
       rethrow;
     }
   }
 
-  /// Send image message
+  /// 🔹 Send image message
   Future<ChatMessage> sendImageMessage({
     required int receiverId,
     required File imageFile,
     String? caption,
   }) async {
     try {
-      // Get token from SharedPreferences
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('auth_token');
+      print('🖼️ Uploading image: ${imageFile.path}');
       
-      if (token == null) {
-        throw Exception('Authentication required');
-      }
-
-      final url = Uri.parse('$baseUrl/chat/send');
-      
-      var request = http.MultipartRequest('POST', url)
-        ..headers['Authorization'] = 'Bearer $token'
-        ..headers['Accept'] = 'application/json'
-        ..fields['receiver_id'] = receiverId.toString()
-        ..fields['type'] = 'image'
-        ..fields['message'] = caption ?? '';
-      
-      // Add image file
-      request.files.add(
-        await http.MultipartFile.fromPath(
-          'file',
-          imageFile.path,
-          filename: imageFile.path.split('/').last,
-        ),
+      final response = await _uploadFile(
+        receiverId: receiverId,
+        file: imageFile,
+        type: 'image',
+        message: caption,
       );
       
-      final response = await request.send();
-      final responseData = await response.stream.bytesToString();
-      final jsonResponse = json.decode(responseData);
-      
-      if (response.statusCode == 201 && jsonResponse['status'] == 'success') {
-        return ChatMessage.fromJson(jsonResponse['data']);
+      if (response['status'] == 'success') {
+        return ChatMessage.fromJson(response['data']);
       } else {
-        throw Exception('Failed to send image: ${jsonResponse['message']}');
+        throw Exception('Gagal mengirim gambar: ${response['message']}');
       }
     } catch (e) {
-      print('⚠️ Error sendImageMessage: $e');
+      print('❌ Error sendImageMessage: $e');
       rethrow;
     }
   }
 
-  /// Send file message
+  /// 🔹 Send file message
   Future<ChatMessage> sendFileMessage({
     required int receiverId,
     required File file,
     String? caption,
+  }) async {
+    try {
+      print('📎 Uploading file: ${file.path}');
+      
+      final response = await _uploadFile(
+        receiverId: receiverId,
+        file: file,
+        type: 'file',
+        message: caption,
+      );
+      
+      if (response['status'] == 'success') {
+        return ChatMessage.fromJson(response['data']);
+      } else {
+        throw Exception('Gagal mengirim file: ${response['message']}');
+      }
+    } catch (e) {
+      print('❌ Error sendFileMessage: $e');
+      rethrow;
+    }
+  }
+
+  /// 🔹 Generic file upload method
+  Future<Map<String, dynamic>> _uploadFile({
+    required int receiverId,
+    required File file,
+    required String type,
+    String? message,
   }) async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -137,14 +150,16 @@ class ChatService {
         throw Exception('Authentication required');
       }
 
-      final url = Uri.parse('$baseUrl/chat/send');
+      final url = Uri.parse('${ApiService.baseUrl}/chat/send');
+      
+      print('🌐 Upload to: $url');
       
       var request = http.MultipartRequest('POST', url)
         ..headers['Authorization'] = 'Bearer $token'
         ..headers['Accept'] = 'application/json'
         ..fields['receiver_id'] = receiverId.toString()
-        ..fields['type'] = 'file'
-        ..fields['message'] = caption ?? '';
+        ..fields['type'] = type
+        ..fields['message'] = message ?? '';
       
       // Add file
       request.files.add(
@@ -155,116 +170,155 @@ class ChatService {
         ),
       );
       
-      final response = await request.send();
-      final responseData = await response.stream.bytesToString();
+      final streamedResponse = await request.send();
+      final responseData = await streamedResponse.stream.bytesToString();
       final jsonResponse = json.decode(responseData);
       
-      if (response.statusCode == 201 && jsonResponse['status'] == 'success') {
-        return ChatMessage.fromJson(jsonResponse['data']);
+      print('📥 Upload response: $jsonResponse');
+      
+      if (streamedResponse.statusCode == 201) {
+        return jsonResponse;
       } else {
-        throw Exception('Failed to send file: ${jsonResponse['message']}');
+        throw Exception('Failed to upload: ${jsonResponse['message']}');
       }
     } catch (e) {
-      print('⚠️ Error sendFileMessage: $e');
+      print('❌ Error _uploadFile: $e');
       rethrow;
     }
   }
 
-  /// Mark messages as read
+  /// 🔹 Mark messages as read
   Future<int> markAsRead(int senderId) async {
     try {
-      final response = await _apiService.post('chat/mark-read', {
+      final response = await _api.post('chat/mark-read', {
         'sender_id': senderId,
       });
       
       if (response['status'] == 'success') {
         return response['data']['updated_count'] ?? 0;
       } else {
-        throw Exception('Failed to mark as read: ${response['message']}');
+        throw Exception('Gagal menandai pesan: ${response['message']}');
       }
     } catch (e) {
-      print('⚠️ Error markAsRead: $e');
+      print('❌ Error markAsRead: $e');
       rethrow;
     }
   }
 
-  /// Get unread count
+  /// 🔹 Get unread count
   Future<Map<String, dynamic>> getUnreadCount() async {
     try {
-      final response = await _apiService.get('chat/unread-count');
+      final response = await _api.get('chat/unread-count');
       
       if (response['status'] == 'success') {
         return response['data'];
       } else {
-        throw Exception('Failed to get unread count: ${response['message']}');
+        throw Exception('Gagal mengambil jumlah pesan: ${response['message']}');
       }
     } catch (e) {
-      print('⚠️ Error getUnreadCount: $e');
+      print('❌ Error getUnreadCount: $e');
       rethrow;
     }
   }
 
-  /// Search users for chat
+  /// 🔹 Search users for chat
   Future<List<Map<String, dynamic>>> searchUsers(String query) async {
     try {
-      final response = await _apiService.get('chat/search-users?search=$query');
+      final response = await _api.get('chat/search-users?search=$query');
       
       if (response['status'] == 'success') {
         return List<Map<String, dynamic>>.from(response['data']);
       } else {
-        throw Exception('Failed to search users: ${response['message']}');
+        throw Exception('Gagal mencari pengguna: ${response['message']}');
       }
     } catch (e) {
-      print('⚠️ Error searchUsers: $e');
+      print('❌ Error searchUsers: $e');
       rethrow;
     }
   }
 
-  /// Delete message
+  /// 🔹 Delete message
   Future<bool> deleteMessage(int messageId) async {
     try {
-      final response = await _apiService.delete('chat/message/$messageId');
+      final response = await _api.delete('chat/message/$messageId');
       
       if (response['status'] == 'success') {
         return true;
       } else {
-        throw Exception('Failed to delete message: ${response['message']}');
+        throw Exception('Gagal menghapus pesan: ${response['message']}');
       }
     } catch (e) {
-      print('⚠️ Error deleteMessage: $e');
+      print('❌ Error deleteMessage: $e');
       rethrow;
     }
   }
 
-  /// Clear conversation with a user
+  /// 🔹 Clear conversation with a user
   Future<bool> clearConversation(int userId) async {
     try {
-      final response = await _apiService.delete('chat/clear/$userId');
+      final response = await _api.delete('chat/clear/$userId');
       
       if (response['status'] == 'success') {
         return true;
       } else {
-        throw Exception('Failed to clear conversation: ${response['message']}');
+        throw Exception('Gagal menghapus percakapan: ${response['message']}');
       }
     } catch (e) {
-      print('⚠️ Error clearConversation: $e');
+      print('❌ Error clearConversation: $e');
       rethrow;
     }
   }
 
-  /// Get chat statistics
+  /// 🔹 Get chat statistics
   Future<Map<String, dynamic>> getStatistics() async {
     try {
-      final response = await _apiService.get('chat/statistics');
+      final response = await _api.get('chat/statistics');
       
       if (response['status'] == 'success') {
         return response['data'];
       } else {
-        throw Exception('Failed to get statistics: ${response['message']}');
+        throw Exception('Gagal mengambil statistik: ${response['message']}');
       }
     } catch (e) {
-      print('⚠️ Error getStatistics: $e');
+      print('❌ Error getStatistics: $e');
       rethrow;
+    }
+  }
+
+  /// 🔹 Get current user id
+  Future<int?> getCurrentUserId() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userData = prefs.getString('user_data');
+      if (userData != null) {
+        final data = json.decode(userData);
+        return data['id'] as int?;
+      }
+      return null;
+    } catch (e) {
+      print('❌ Error getCurrentUserId: $e');
+      return null;
+    }
+  }
+
+  /// 🔹 Check if message is from current user
+  Future<bool> isMessageFromMe(int senderId) async {
+    final currentUserId = await getCurrentUserId();
+    return currentUserId == senderId;
+  }
+
+  /// 🔹 Format time
+  String formatMessageTime(DateTime time) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    
+    if (time.isAfter(today)) {
+      return DateFormat('HH:mm').format(time);
+    } else if (time.isAfter(yesterday)) {
+      return 'Kemarin';
+    } else {
+      return DateFormat('dd/MM/yyyy').format(time);
     }
   }
 }

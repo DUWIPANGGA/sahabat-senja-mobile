@@ -185,35 +185,60 @@ class _KesehatanScreenState extends State<KesehatanScreen> {
         ),
       );
 
-  Widget _buildLansiaList() {
-    return RefreshIndicator(
-      onRefresh: _refreshData,
-      child: ListView.builder(
-        itemCount: _lansiaTerhubung.length,
-        itemBuilder: (context, index) {
-          final lansia = _lansiaTerhubung[index];
-          final namaLansia = lansia.namaLansia ?? 'Tanpa Nama';
+// Di file KesehatanScreen.dart - PERBAIKAN FUTUREBUILDER
+Widget _buildLansiaList() {
+  return RefreshIndicator(
+    onRefresh: _refreshData,
+    child: ListView.builder(
+      itemCount: _lansiaTerhubung.length,
+      itemBuilder: (context, index) {
+        final lansia = _lansiaTerhubung[index];
+        final namaLansia = lansia.namaLansia ?? 'Tanpa Nama';
 
-          return FutureBuilder<KondisiHarian?>(
-            future: _kondisiService.getTodayData(namaLansia),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return _buildLoadingCard(lansia);
-              }
+        return FutureBuilder<KondisiHarian?>(
+          future: _kondisiService.getTodayDataWithFallback(namaLansia), // Gunakan fallback
+          builder: (context, snapshot) {
+            // Debug snapshot state
+            print('🔍 Snapshot state: ${snapshot.connectionState}');
+            print('🔍 Snapshot hasData: ${snapshot.hasData}');
+            print('🔍 Snapshot hasError: ${snapshot.hasError}');
+            if (snapshot.hasError) {
+              print('🔍 Snapshot error: ${snapshot.error}');
+              print('🔍 Snapshot stack: ${snapshot.stackTrace}');
+            }
+            if (snapshot.hasData) {
+              print('🔍 Snapshot data: ${snapshot.data?.toJson()}');
+            }
 
-              if (snapshot.hasError) {
-                return _buildErrorCard(lansia, snapshot.error.toString());
-              }
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return _buildLoadingCard(lansia);
+            }
 
-              final kondisi = snapshot.data;
-              return _buildLansiaCard(lansia, kondisi);
-            },
-          );
-        },
-      ),
-    );
-  }
+            if (snapshot.hasError) {
+              return _buildErrorCard(lansia, snapshot.error.toString());
+            }
 
+            // PERBAIKAN: Handle null data dengan lebih baik
+            final kondisi = snapshot.data;
+            if (kondisi == null || kondisi.id == null) {
+              // Jika data null atau tidak valid, tampilkan card tanpa data
+              return _buildLansiaCard(lansia, null);
+            }
+            
+            return _buildLansiaCard(lansia, kondisi);
+          },
+        );
+      },
+    ),
+  );
+}
+
+// Tambahkan method untuk debugging API
+Future<void> _debugApi() async {
+  await _kondisiService.debugEndpoint('kondisi/today/didi/2025-12-05');
+  await _kondisiService.debugEndpoint('kondisi');
+  await _kondisiService.debugEndpoint('kondisi/hari-ini');
+}
   Widget _buildLoadingCard(Datalansia lansia) {
     return Card(
       margin: const EdgeInsets.all(16),

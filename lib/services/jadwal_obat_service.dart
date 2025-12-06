@@ -1,6 +1,7 @@
 // services/jadwal_obat_service.dart
 import 'package:sahabatsenja_app/services/api_service.dart';
 import 'package:sahabatsenja_app/models/jadwal_obat_model.dart';
+import 'package:intl/intl.dart';
 
 class JadwalObatService {
   final ApiService _api = ApiService();
@@ -36,6 +37,43 @@ class JadwalObatService {
       }
     } catch (e) {
       print('⚠️ Error getByLansia: $e');
+      return [];
+    }
+  }
+
+  /// Get jadwal obat aktif hari ini
+  Future<List<JadwalObat>> getAktifHariIni([String? tanggal]) async {
+    try {
+      final today = tanggal ?? DateFormat('yyyy-MM-dd').format(DateTime.now());
+      final response = await _api.get('jadwal-obat/aktif/hari-ini?tanggal=$today');
+      
+      if (response['status'] == 'success') {
+        final List<dynamic> data = response['data'];
+        return data.map((e) => JadwalObat.fromJson(e)).toList();
+      } else {
+        print('⚠️ Tidak ada jadwal obat aktif hari ini');
+        return [];
+      }
+    } catch (e) {
+      print('⚠️ Error getAktifHariIni: $e');
+      return [];
+    }
+  }
+
+  /// Get jadwal obat by tanggal
+  Future<List<JadwalObat>> getByTanggal(String tanggal) async {
+    try {
+      final response = await _api.get('jadwal-obat/tanggal/$tanggal');
+      
+      if (response['status'] == 'success') {
+        final List<dynamic> data = response['data'];
+        return data.map((e) => JadwalObat.fromJson(e)).toList();
+      } else {
+        print('⚠️ Tidak ada jadwal obat pada tanggal $tanggal');
+        return [];
+      }
+    } catch (e) {
+      print('⚠️ Error getByTanggal: $e');
       return [];
     }
   }
@@ -76,7 +114,7 @@ class JadwalObatService {
     }
   }
 
-  /// Update status selesai
+  /// Update status selesai (alias untuk updateSelesai)
   Future<bool> updateStatus(int id, bool selesai) async {
     try {
       final response = await _api.put('jadwal-obat/$id/selesai', {'selesai': selesai});
@@ -92,6 +130,11 @@ class JadwalObatService {
       print('⚠️ Error updateStatus: $e');
       return false;
     }
+  }
+
+  /// Update status selesai (mirip dengan updateStatus)
+  Future<bool> updateSelesai(int id, bool selesai) async {
+    return updateStatus(id, selesai);
   }
 
   /// Update jam minum
@@ -130,20 +173,123 @@ class JadwalObatService {
     }
   }
 
-  /// Get jadwal obat aktif hari ini
-  Future<List<JadwalObat>> getAktifHariIni() async {
+  /// Get summary jadwal obat
+  Future<Map<String, dynamic>> getSummary() async {
     try {
-      final response = await _api.get('jadwal-obat/aktif/hari-ini');
+      final response = await _api.get('jadwal-obat/summary');
+      
+      if (response['status'] == 'success') {
+        return response['data'] ?? {};
+      } else {
+        print('⚠️ Gagal get summary: ${response['message']}');
+        return {};
+      }
+    } catch (e) {
+      print('⚠️ Error getSummary: $e');
+      return {};
+    }
+  }
+
+  /// Get jadwal obat yang belum selesai hari ini
+  Future<List<JadwalObat>> getTodayPending() async {
+    try {
+      final response = await _api.get('jadwal-obat/today/pending');
       
       if (response['status'] == 'success') {
         final List<dynamic> data = response['data'];
         return data.map((e) => JadwalObat.fromJson(e)).toList();
       } else {
-        print('⚠️ Tidak ada jadwal obat aktif hari ini');
+        print('⚠️ Tidak ada jadwal obat pending hari ini');
         return [];
       }
     } catch (e) {
-      print('⚠️ Error getAktifHariIni: $e');
+      print('⚠️ Error getTodayPending: $e');
+      return [];
+    }
+  }
+
+  /// Mark multiple obat as done
+  Future<bool> markMultipleAsDone(List<int> ids) async {
+    try {
+      final response = await _api.post('jadwal-obat/mark-multiple', {'ids': ids});
+      
+      if (response['status'] == 'success') {
+        print('✅ ${ids.length} obat berhasil ditandai selesai');
+        return true;
+      } else {
+        print('❌ Gagal mark multiple: ${response['message']}');
+        return false;
+      }
+    } catch (e) {
+      print('⚠️ Error markMultipleAsDone: $e');
+      return false;
+    }
+  }
+
+Future<List<JadwalObat>> getTodayForLansia(int datalansiaId, String tanggal) async {
+  try {
+    // Coba endpoint spesifik
+    final response = await _api.get('jadwal-obat/lansia/$datalansiaId/today/$tanggal');
+    
+    if (response['status'] == 'success') {
+      final List<dynamic> data = response['data'];
+      return data.map((e) => JadwalObat.fromJson(e)).toList();
+    } else {
+      // Fallback: ambil semua dan filter
+      print('⚠️ Tidak ada endpoint spesifik, menggunakan fallback');
+      final allObat = await getByLansia(datalansiaId);
+      return allObat.where((obat) {
+        final isHariIni = DateFormat('yyyy-MM-dd').format(obat.tanggalMulai) == tanggal;
+        final isAktif = !obat.selesai && 
+            (obat.tanggalSelesai == null || 
+             DateFormat('yyyy-MM-dd').format(obat.tanggalSelesai!).compareTo(tanggal) >= 0);
+        return isHariIni || isAktif;
+      }).toList();
+    }
+  } catch (e) {
+    print('⚠️ Error getTodayForLansia: $e');
+    return [];
+  }
+}
+
+/// Get obat berdasarkan tanggal
+Future<List<JadwalObat>> getByDate(int? datalansiaId, String tanggal) async {
+  try {
+    String endpoint;
+    if (datalansiaId != null) {
+      endpoint = 'jadwal-obat/lansia/$datalansiaId/date/$tanggal';
+    } else {
+      endpoint = 'jadwal-obat/date/$tanggal';
+    }
+    
+    final response = await _api.get(endpoint);
+    
+    if (response['status'] == 'success') {
+      final List<dynamic> data = response['data'];
+      return data.map((e) => JadwalObat.fromJson(e)).toList();
+    } else {
+      print('⚠️ Tidak ada data obat pada tanggal $tanggal');
+      return [];
+    }
+  } catch (e) {
+    print('⚠️ Error getByDate: $e');
+    return [];
+  }
+}
+  /// Get upcoming obat (7 hari ke depan)
+  Future<List<JadwalObat>> getUpcomingObat(int datalansiaId) async {
+    try {
+      final response = await _api.get('jadwal-obat/lansia/$datalansiaId/upcoming');
+      
+      if (response['status'] == 'success') {
+        final List<dynamic> data = response['data'];
+        return data.map((e) => JadwalObat.fromJson(e)).toList();
+      } else {
+        print('⚠️ Tidak ada jadwal obat upcoming untuk lansia $datalansiaId');
+        return [];
+      }
+    } catch (e) {
+      print('⚠️ Error getUpcomingObat: $e');
       return [];
     }
   }
