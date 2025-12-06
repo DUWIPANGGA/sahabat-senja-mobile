@@ -1,10 +1,11 @@
 // lib/services/api_service.dart
 import 'dart:convert';
+
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
-  static const String baseUrl = 'http://192.168.0.101:8000/api';
+  static const String baseUrl = 'http://192.168.1.43:8000/api';
 
   // 🔹 Header request DENGAN token (jika ada)
   Future<Map<String, String>> _getHeaders({bool includeAuth = true}) async {
