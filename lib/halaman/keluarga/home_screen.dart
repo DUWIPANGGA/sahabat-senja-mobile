@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sahabatsenja_app/halaman/keluarga/biodata_screen.dart';
 import 'package:sahabatsenja_app/halaman/keluarga/chat_list_screen.dart';
+import 'package:sahabatsenja_app/halaman/keluarga/gallery_screen.dart';
 import 'package:sahabatsenja_app/halaman/keluarga/jadwal_aktifitas_screen.dart';
 import 'package:sahabatsenja_app/halaman/keluarga/kesehatan_screen.dart';
 import 'package:sahabatsenja_app/halaman/keluarga/transaction_screen.dart';
@@ -446,6 +447,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Padding(
               padding: const EdgeInsets.only(top: 16),
               child: Container(
+  width: double.infinity,
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: Colors.amber[50],
