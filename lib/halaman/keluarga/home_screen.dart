@@ -1,19 +1,22 @@
+import 'dart:async' show Timer, StreamSubscription;
+
 import 'package:flutter/material.dart';
 import 'package:sahabatsenja_app/halaman/keluarga/biodata_screen.dart';
 import 'package:sahabatsenja_app/halaman/keluarga/chat_list_screen.dart';
-import 'package:sahabatsenja_app/halaman/keluarga/gallery_screen.dart';
+import 'package:sahabatsenja_app/halaman/keluarga/iuran_list_screen.dart';
 import 'package:sahabatsenja_app/halaman/keluarga/jadwal_aktifitas_screen.dart';
+import 'package:sahabatsenja_app/halaman/keluarga/kampanye_list_screen.dart';
 import 'package:sahabatsenja_app/halaman/keluarga/kesehatan_screen.dart';
-import 'package:sahabatsenja_app/halaman/keluarga/transaction_screen.dart';
-import 'package:sahabatsenja_app/halaman/keluarga/donation_screen.dart';
 import 'package:sahabatsenja_app/halaman/keluarga/notification_screen.dart';
+import 'package:sahabatsenja_app/halaman/keluarga/profile_screen.dart';
+import 'package:sahabatsenja_app/models/datalansia_model.dart';
 import 'package:sahabatsenja_app/models/jadwal_aktivitas_model.dart' show JadwalAktivitas;
+import 'package:sahabatsenja_app/models/kondisi_model.dart';
 import 'package:sahabatsenja_app/services/datalansia_service.dart';
 import 'package:sahabatsenja_app/services/jadwal_aktifitas_service.dart';
-import 'package:sahabatsenja_app/services/kondisi_service.dart';
 import 'package:sahabatsenja_app/services/keluarga_service.dart' hide DatalansiaService;
-import 'package:sahabatsenja_app/models/datalansia_model.dart';
-import 'package:sahabatsenja_app/models/kondisi_model.dart';
+import 'package:sahabatsenja_app/services/kondisi_service.dart';
+import 'package:sahabatsenja_app/services/notification_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -29,9 +32,12 @@ class _HomeScreenState extends State<HomeScreen> {
   final DatalansiaService _datalansiaService = DatalansiaService();
   final KondisiService _kondisiService = KondisiService();
   final KeluargaService _keluargaService = KeluargaService();
+  final NotificationService _notificationService = NotificationService();
   List<JadwalAktivitas> _jadwalAktivitas = [];
 
   int _notificationCount = 0;
+  int _unreadNotificationCount = 0; // Jumlah notifikasi belum dibaca
+  bool _hasUrgentNotifications = false; // Flag untuk notifikasi darurat
   List<Datalansia> _lansiaList = [];
   List<KondisiHarian> _kondisiTerbaru = [];
   int _totalLansia = 0;
@@ -39,11 +45,22 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isLoading = true;
   String? _userEmail;
 
+  Timer? _notificationTimer;
+  StreamSubscription<int>? _notificationSubscription;
+
   @override
   void initState() {
     super.initState();
     _loadData();
     _loadUserEmail();
+    _startNotificationPolling();
+  }
+
+  @override
+  void dispose() {
+    _notificationTimer?.cancel();
+    _notificationSubscription?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadUserEmail() async {
@@ -88,8 +105,11 @@ class _HomeScreenState extends State<HomeScreen> {
         }
       }
 
-      // 4. Hitung notifikasi
+      // 4. Hitung notifikasi kesehatan
       _notificationCount = _totalLansia - _lansiaStabil;
+
+      // 5. Load notifikasi dari server
+      await _loadNotifications();
 
     } catch (e) {
       print('❌ Error load home data: $e');
@@ -98,6 +118,55 @@ class _HomeScreenState extends State<HomeScreen> {
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  Future<void> _loadNotifications() async {
+    try {
+      final unreadCount = await _notificationService.getUnreadCount();
+      final urgentCount = await _notificationService.getUrgentCount();
+      
+      setState(() {
+        _unreadNotificationCount = unreadCount;
+        _hasUrgentNotifications = urgentCount > 0;
+      });
+    } catch (e) {
+      print('⚠️ Error loading notifications: $e');
+    }
+  }
+
+  void _startNotificationPolling() {
+    // Polling setiap 30 detik untuk update notifikasi
+    _notificationTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      _loadNotifications();
+    });
+
+    // Listen to notification changes (jika menggunakan WebSocket)
+    // _setupNotificationListener();
+  }
+
+  void _setupNotificationListener() {
+    // Jika menggunakan WebSocket atau Firebase Messaging
+    // _notificationSubscription = _notificationService.notificationStream.listen((count) {
+    //   if (mounted) {
+    //     setState(() {
+    //       _unreadNotificationCount = count;
+    //     });
+    //   }
+    // });
+  }
+
+  int get _totalNotificationBadge {
+    // Gabungkan notifikasi kesehatan dengan notifikasi sistem
+    return _notificationCount + _unreadNotificationCount;
+  }
+
+  Color get _notificationBadgeColor {
+    if (_hasUrgentNotifications) {
+      return Colors.red; // Warna merah untuk notifikasi darurat
+    } else if (_unreadNotificationCount > 0) {
+      return Colors.orange; // Warna orange untuk notifikasi biasa
+    }
+    return Colors.red; // Default merah
   }
 
   Future<void> _refreshData() async {
@@ -123,25 +192,31 @@ class _HomeScreenState extends State<HomeScreen> {
   void _navigateToTransactions(BuildContext context) {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => const TransactionScreen()),
+      MaterialPageRoute(builder: (context) => const IuranListScreen()),
     );
   }
 
   void _navigateToDonation(BuildContext context) {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => const DonationScreen()),
+      MaterialPageRoute(builder: (context) => const KampanyeListScreen()),
     );
   }
 
   void _navigateToNotifications(BuildContext context) {
+    // Reset badge ketika membuka notifikasi
     setState(() {
-      _notificationCount = 0;
+      _unreadNotificationCount = 0;
+      _hasUrgentNotifications = false;
     });
+    
     Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const NotificationScreen()),
-    );
+    ).then((_) {
+      // Refresh notifikasi setelah kembali
+      _loadNotifications();
+    });
   }
 
   void _navigateToChat(BuildContext context) {
@@ -159,7 +234,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _navigateToSettings(BuildContext context) {
-    // TODO: Implement settings screen
+   Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const ProfileScreen()),
+    );
   }
 
   void _navigateToHelp(BuildContext context) {
@@ -318,48 +396,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
                 const SizedBox(width: 16),
-                Stack(
-                  children: [
-                    Container(
-                      width: 50,
-                      height: 50,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
-                        shape: BoxShape.circle,
-                      ),
-                      child: IconButton(
-                        icon: const Icon(Icons.notifications_none,
-                            color: Colors.white, size: 26),
-                        onPressed: () => _navigateToNotifications(context),
-                      ),
-                    ),
-                    if (_notificationCount > 0)
-                      Positioned(
-                        right: 6,
-                        top: 6,
-                        child: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: const BoxDecoration(
-                            color: Colors.red,
-                            shape: BoxShape.circle,
-                          ),
-                          constraints: const BoxConstraints(
-                            minWidth: 20,
-                            minHeight: 20,
-                          ),
-                          child: Text(
-                            _notificationCount > 9 ? '9+' : _notificationCount.toString(),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
+                _buildNotificationBadge(),
               ],
             ),
             
@@ -370,6 +407,88 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _buildNotificationBadge() {
+    final totalBadgeCount = _totalNotificationBadge;
+    
+    return Stack(
+      children: [
+        Container(
+          width: 50,
+          height: 50,
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.2),
+            shape: BoxShape.circle,
+          ),
+          child: IconButton(
+            icon: Icon(
+              Icons.notifications_none,
+              color: _hasUrgentNotifications ? Colors.red[200] : Colors.white,
+              size: 26,
+            ),
+            onPressed: () => _navigateToNotifications(context),
+          ),
+        ),
+        
+        // Badge merah untuk notifikasi
+        if (totalBadgeCount > 0)
+          Positioned(
+            right: 6,
+            top: 6,
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: _notificationBadgeColor,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.2),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              constraints: const BoxConstraints(
+                minWidth: 20,
+                minHeight: 20,
+              ),
+              child: Center(
+                child: Text(
+                  totalBadgeCount > 9 ? '9+' : totalBadgeCount.toString(),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+          ),
+        
+        // Tanda merah kecil (dot) untuk notifikasi darurat
+        if (_hasUrgentNotifications && _unreadNotificationCount == 0)
+          Positioned(
+            right: 12,
+            top: 12,
+            child: Container(
+              width: 8,
+              height: 8,
+              decoration: const BoxDecoration(
+                color: Colors.red,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.red,
+                    blurRadius: 4,
+                    spreadRadius: 1,
+                  ),
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
   Widget _buildLoadingSection() {
     return Container(
       margin: const EdgeInsets.all(16),

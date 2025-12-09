@@ -1,6 +1,7 @@
 // providers/chat_provider.dart
 import 'dart:convert';
 import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:sahabatsenja_app/models/chat_model.dart';
 import 'package:sahabatsenja_app/services/chat_service.dart';
@@ -241,31 +242,61 @@ void _updateConversationList(int userId, ChatMessage message) {
     _unreadCounts['total_unread'] = (_unreadCounts['total_unread'] ?? 0) + 1;
   }
 }
-  // Load unread counts
-  Future<void> loadUnreadCounts() async {
-    try {
-      final data = await _chatService.getUnreadCount();
-      _unreadCounts = data;
+Future<void> loadUnreadCounts() async {
+  try {
+    final data = await _chatService.getUnreadCount();
+    
+    // Pastikan data berformat benar
+    if (data != null && data is Map<String, dynamic>) {
+      _unreadCounts = {
+        'total_unread': int.tryParse(data['total_unread']?.toString() ?? '0') ?? 0,
+        'conversations': Map<String, int>.from(
+          (data['conversations'] as Map<String, dynamic>? ?? {}).map(
+            (key, value) => MapEntry(
+              key.toString(),
+              int.tryParse(value?.toString() ?? '0') ?? 0,
+            ),
+          ),
+        ),
+      };
       
       // Update unread counts in conversations
       for (int i = 0; i < _conversations.length; i++) {
         final conv = _conversations[i];
-        final userId = conv.user['id'];
-        if (_unreadCounts['conversations']?[userId.toString()] != null) {
+        final userId = conv.user['id']?.toString();
+        
+        if (userId != null && _unreadCounts['conversations']?[userId] != null) {
+          final unreadCount = _unreadCounts['conversations']![userId] ?? 0;
           _conversations[i] = ChatConversation(
             user: conv.user,
             lastMessage: conv.lastMessage,
-            unreadCount: _unreadCounts['conversations'][userId.toString()],
+            unreadCount: unreadCount,
             lastMessageTime: conv.lastMessageTime,
           );
         }
       }
       
       notifyListeners();
-    } catch (e) {
-      print('Error loading unread counts: $e');
     }
+  } catch (e) {
+    print('❌ Error loading unread counts: $e');
+    // Set default values on error
+    _unreadCounts = {
+      'total_unread': 0,
+      'conversations': {},
+    };
+    notifyListeners();
   }
+}
+
+
+int _safeParseInt(dynamic value) {
+  if (value == null) return 0;
+  if (value is int) return value;
+  if (value is String) return int.tryParse(value) ?? 0;
+  if (value is double) return value.toInt();
+  return 0;
+}
 
   // Get total unread count
   int get totalUnreadCount {

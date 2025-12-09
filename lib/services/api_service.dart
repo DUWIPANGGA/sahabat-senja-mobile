@@ -5,7 +5,8 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
-  static const String baseUrl = 'http://192.168.1.43:8000/api';
+  // static const String baseUrl = 'http://10.0.168.127:8000/api';
+  static const String baseUrl = 'https://sahabat-senja.spm.my.id/api';
 
   // 🔹 Header request DENGAN token (jika ada)
   Future<Map<String, String>> _getHeaders({bool includeAuth = true}) async {
@@ -24,22 +25,21 @@ class ApiService {
 
     return headers;
   }
+Future<dynamic> get(String endpoint, {Map<String, dynamic>? params, bool includeAuth = true}) async {
+  try {
+    final url = Uri.parse('$baseUrl/$endpoint').replace(queryParameters: params);
+    final headers = await _getHeaders(includeAuth: includeAuth);
 
-  // 🔹 GET request
-  Future<dynamic> get(String endpoint, {bool includeAuth = true}) async {
-    try {
-      final url = Uri.parse('$baseUrl/$endpoint');
-      final headers = await _getHeaders(includeAuth: includeAuth);
-      
-      print('🌐 GET Request: $url');
-      
-      final response = await http.get(url, headers: headers);
-      return _handleResponse(response);
-    } catch (e) {
-      print('❌ GET Error: $e');
-      rethrow;
-    }
+    print('🌐 GET Request: $url');
+
+    final response = await http.get(url, headers: headers);
+    return _handleResponse(response);
+  } catch (e) {
+    print('❌ GET Error: $e');
+    rethrow;
   }
+}
+
 
   // 🔹 POST request
   Future<dynamic> post(String endpoint, Map<String, dynamic> data, 

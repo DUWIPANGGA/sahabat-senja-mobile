@@ -2,11 +2,11 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sahabatsenja_app/halaman/keluarga/home_screen.dart';
+import 'package:sahabatsenja_app/halaman/perawat/home_perawat_screen.dart';
 import 'package:sahabatsenja_app/services/api_service.dart';
 import 'package:sahabatsenja_app/services/auth_service.dart';
-import 'package:sahabatsenja_app/halaman/perawat/home_perawat_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'main_app.dart';
+
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -55,7 +55,7 @@ class _LoginScreenState extends State<LoginScreen> {
         await prefs.setString('user_email', user['email']);
         
         // SIMPAN USER ID untuk chat
-        await prefs.setInt('user_id', user['id']);
+await prefs.setInt('user_id', int.parse(user['id'].toString()));
         await prefs.setString('user_phone', user['phone'] ?? '');
         await prefs.setString('user_address', user['address'] ?? '');
         await prefs.setString('user_avatar', user['avatar_url'] ?? '');
@@ -64,15 +64,15 @@ class _LoginScreenState extends State<LoginScreen> {
         print('🔑 Token: ${token.substring(0, 20)}...');
         
         // Navigasi berdasarkan role
-        // if (mounted) {
-          // if (user['role'] == 'admin') {
-            // print('🚀 Navigasi ke HomePerawatScreen');
-            // Navigator.pushReplacement(
-            //   context,
-            //   MaterialPageRoute(builder: (_) => HomePerawatScreen()),
-            // );
-        //   } else if (user['role'] == 'keluarga') {
-        //     print('🚀 Navigasi ke HomeScreen untuk keluarga');
+        if (mounted) {
+          if (user['role'] == 'perawat') {
+            print('🚀 Navigasi ke HomePerawatScreen');
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => HomePerawatScreen()),
+            );
+          } else if (user['role'] == 'keluarga') {
+            print('🚀 Navigasi ke HomeScreen untuk keluarga');
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(
@@ -81,12 +81,12 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
             );
-        //   } else {
-        //     // Role lainnya
-        //     print('⚠️ Role tidak dikenal: ${user['role']}');
-        //     _showSnack('Role tidak dikenali. Hubungi administrator.');
-        //   }
-        // }
+          } else {
+            // Role lainnya
+            print('⚠️ Role tidak dikenal: ${user['role']}');
+            _showSnack('Role tidak dikenali. Hubungi administrator.');
+          }
+        }
       } else {
         print('❌ Login gagal: ${response['message']}');
         _showSnack(response['message'] ?? 'Login gagal');
@@ -234,45 +234,23 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  // ✅ CEK TOKEN SAAT INISIALISASI (AUTO LOGIN)
-  Future<void> _checkAutoLogin() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('auth_token');
-      final role = prefs.getString('user_role');
-      final name = prefs.getString('user_name');
-      final userId = prefs.getInt('user_id');
-      
-      if (token != null && role != null && name != null && userId != null) {
-        // Verifikasi token masih valid
-        print('🔍 Cek auto-login...');
-        final response = await _apiService.get('auth/user');
-        
-        if (response['status'] == 'success' && mounted) {
-          print('✅ Auto-login berhasil');
-          if (role == 'perawat') {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (_) => HomePerawatScreen()),
-            );
-          } else {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (_) => HomeScreen(namaKeluarga: name),
-              ),
-            );
-          }
-        } else {
-          // Token tidak valid, clear storage
-          print('❌ Token tidak valid');
-          await ApiService.clearToken();
-        }
-      }
-    } catch (e) {
-      print('❌ Auto-login error: $e');
-    }
+Future<void> _checkAutoLogin() async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+
+    final token = prefs.getString('auth_token');
+    final role = prefs.getString('user_role');
+    final name = prefs.getString('user_name');
+    
+    // 🔥 PERBAIKAN USER ID
+    dynamic rawUserId = prefs.get('user_id');
+    int? userId = (rawUserId is int) ? rawUserId : int.tryParse(rawUserId.toString());
+
+    
+  } catch (e) {
+    print('❌ Auto-login error: $e');
   }
+}
 
   @override
   void initState() {

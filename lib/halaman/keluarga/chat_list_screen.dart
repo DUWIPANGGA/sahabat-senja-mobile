@@ -2,10 +2,9 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:sahabatsenja_app/halaman/keluarga/chat_detail_screen.dart';
 import 'package:sahabatsenja_app/models/chat_model.dart';
 import 'package:sahabatsenja_app/services/chat_service.dart';
-import 'package:sahabatsenja_app/halaman/keluarga/chat_detail_screen.dart';
-import 'package:intl/intl.dart';
 
 class ChatListScreen extends StatefulWidget {
   const ChatListScreen({Key? key}) : super(key: key);
@@ -361,137 +360,76 @@ class _ChatListScreenState extends State<ChatListScreen> {
     );
   }
 
-  Widget _buildPerawatItem(Map<String, dynamic> perawat) {
-    final name = perawat['name'] ?? 'Perawat';
-    final email = perawat['email'] ?? '';
-    final avatar = perawat['avatar'];
-    
-    // Cek apakah sudah ada percakapan dengan perawat ini
-    final existingConversation = _conversations.firstWhere(
-      (conv) => conv.user['id'] == perawat['id'],
-      orElse: () => ChatConversation(
-        user: {},
-        unreadCount: 0,
-        lastMessageTime: null,
-      ),
-    );
-    
-    final hasExistingChat = existingConversation.user.isNotEmpty;
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[200]!),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.05),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
+// Di _buildSearchBottomSheet() - perbaiki onTap untuk perawat
+Widget _buildPerawatItem(Map<String, dynamic> perawat) {
+  return ListTile(
+    leading: CircleAvatar(
+      child: perawat['avatar'] != null
+          ? CircleAvatar(backgroundImage: NetworkImage(perawat['avatar']))
+          : const Icon(Icons.medical_services, color: Color(0xFF9C6223)),
+    ),
+    title: Text(perawat['name'] ?? 'Perawat'),
+    subtitle: Text(perawat['email'] ?? ''),
+    trailing: const Icon(Icons.chat),
+    onTap: () async {
+      Navigator.pop(context); // Tutup bottom sheet
+      
+      try {
+        // Cek dulu apakah sudah ada percakapan
+        final existingConv = _conversations.firstWhere(
+          (conv) => conv.user['id'] == perawat['id'],
+          orElse: () => ChatConversation(
+            user: {},
+            unreadCount: 0,
+            lastMessageTime: null,
           ),
-        ],
-      ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 12,
-        ),
-        leading: Container(
-          width: 50,
-          height: 50,
-          decoration: BoxDecoration(
-            color: const Color(0xFF9C6223).withOpacity(0.1),
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: const Color(0xFF9C6223).withOpacity(0.3),
-              width: 2,
-            ),
-          ),
-          child: avatar != null
-              ? CircleAvatar(
-                  backgroundImage: NetworkImage(avatar),
-                )
-              : const Icon(
-                  Icons.medical_services,
-                  color: Color(0xFF9C6223),
-                  size: 24,
-                ),
-        ),
-        title: Row(
-          children: [
-            Expanded(
-              child: Text(
-                name,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black87,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            if (hasExistingChat)
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF9C6223).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Text(
-                  'Sudah Chat',
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: Color(0xFF9C6223),
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-          ],
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 4),
-            const Text(
-              'Perawat',
-              style: TextStyle(
-                fontSize: 12,
-                color: Color(0xFF9C6223),
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            if (email.isNotEmpty) ...[
-              const SizedBox(height: 2),
-              Text(
-                email,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[600],
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ],
-        ),
-        trailing: const Icon(
-          Icons.arrow_forward_ios,
-          size: 16,
-          color: Colors.grey,
-        ),
-        onTap: () {
-          Navigator.pop(context); // Tutup bottom sheet
-          _startNewChat(perawat);
-        },
-      ),
-    );
-  }
+        );
 
+        if (existingConv.user.isNotEmpty) {
+          // Jika sudah ada, langsung buka chat
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ChatDetailScreen(
+                otherUserId: perawat['id'],
+                otherUserName: perawat['name'] ?? 'Perawat',
+                otherUserRole: 'Perawat',
+                otherUserAvatar: perawat['avatar'],
+              ),
+            ),
+          );
+        } else {
+          // Jika belum ada, kirim pesan pertama
+          final chatService = ChatService();
+          await chatService.sendTextMessage(
+            receiverId: perawat['id'],
+            message: 'Halo, saya ingin berkonsultasi',
+          );
+          
+          // Kemudian buka chat
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ChatDetailScreen(
+                otherUserId: perawat['id'],
+                otherUserName: perawat['name'] ?? 'Perawat',
+                otherUserRole: 'Perawat',
+                otherUserAvatar: perawat['avatar'],
+              ),
+            ),
+          ).then((_) => _refreshData());
+        }
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal memulai chat: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    },
+  );
+}
   @override
   Widget build(BuildContext context) {
     return Scaffold(

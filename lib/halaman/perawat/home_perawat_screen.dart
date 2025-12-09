@@ -6,13 +6,11 @@ import 'package:sahabatsenja_app/halaman/perawat/kondisi_main_screen.dart';
 import 'package:sahabatsenja_app/halaman/perawat/list_chat_perawat_screen.dart';
 import 'package:sahabatsenja_app/halaman/perawat/pilih_lansia_jadwal_obat_screen.dart';
 import 'package:sahabatsenja_app/providers/chat_provider.dart';
-import 'profile_screen.dart';
+
 import 'data_lansia_screen.dart';
-import 'kondisi_lansia_screen.dart';
 import 'jadwal_perawat_screen.dart';
-import 'jadwal_obat_screen.dart';
+import 'profile_screen.dart';
 import 'tracking_obat_screen.dart';
-import 'chat_perawat_screen.dart';
 
 class HomePerawatScreen extends StatefulWidget {
   const HomePerawatScreen({super.key});
@@ -188,7 +186,7 @@ class _HomePerawatScreenState extends State<HomePerawatScreen>
   Widget build(BuildContext context) {
     final screens = [
       _buildDashboard(),
-      ListChatPerawatScreen(perawatId: 1), // Ganti dengan ID perawat yang sesungguhnya
+      ListChatPerawatScreen(),
       const ProfileScreen(showAppBar: false),
     ];
 
@@ -229,13 +227,7 @@ class _HomePerawatScreenState extends State<HomePerawatScreen>
           ),
         ),
         actions: [
-          Tooltip(
-            message: 'Darurat',
-            child: IconButton(
-              icon: const Icon(Icons.warning_amber_rounded, color: Colors.redAccent),
-              onPressed: () => _showEmergencyDialog(context),
-            ),
-          ),
+          
           Tooltip(
             message: 'Notifikasi',
             child: IconButton(

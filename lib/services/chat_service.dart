@@ -1,11 +1,12 @@
 // services/chat_service.dart
 import 'dart:convert';
 import 'dart:io';
+
 import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
 import 'package:sahabatsenja_app/models/chat_model.dart';
 import 'package:sahabatsenja_app/services/api_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:intl/intl.dart';
 
 class ChatService {
   final ApiService _api = ApiService();
@@ -285,22 +286,24 @@ class ChatService {
     }
   }
 
-  /// 🔹 Get current user id
-  Future<int?> getCurrentUserId() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final userData = prefs.getString('user_data');
-      if (userData != null) {
-        final data = json.decode(userData);
-        return data['id'] as int?;
-      }
-      return null;
-    } catch (e) {
-      print('❌ Error getCurrentUserId: $e');
-      return null;
+/// services/chat_service.dart
+Future<int?> getCurrentUserId() async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final userData = prefs.getString('user_data');
+    if (userData != null) {
+      final data = json.decode(userData);
+      // Handle kemungkinan ID bertipe String atau int
+      final dynamic id = data['id'];
+      if (id is int) return id;
+      if (id is String) return int.tryParse(id);
     }
+    return null;
+  } catch (e) {
+    print('❌ Error getCurrentUserId: $e');
+    return null;
   }
-
+}
   /// 🔹 Check if message is from current user
   Future<bool> isMessageFromMe(int senderId) async {
     final currentUserId = await getCurrentUserId();
