@@ -25,7 +25,22 @@ class _KampanyeDetailScreenState extends State<KampanyeDetailScreen> {
     super.initState();
     _loadKampanyeDetail();
   }
-
+ImageProvider _getKampanyeImage(String? imageUrl) {
+  if (imageUrl == null || imageUrl.isEmpty) {
+    return const AssetImage('assets/images/donasi.png');
+  }
+  
+  try {
+    final uri = Uri.parse(imageUrl);
+    if (uri.isAbsolute && (uri.scheme == 'http' || uri.scheme == 'https')) {
+      return NetworkImage(imageUrl);
+    } else {
+      return const AssetImage('assets/images/donasi.png');
+    }
+  } catch (e) {
+    return const AssetImage('assets/images/donasi.png');
+  }
+}
   Future<void> _loadKampanyeDetail() async {
     setState(() => _isLoading = true);
     
@@ -156,64 +171,56 @@ class _KampanyeDetailScreenState extends State<KampanyeDetailScreen> {
   }
 
   SliverAppBar _buildHeader(KampanyeDonasi kampanye) {
-    return SliverAppBar(
-      expandedHeight: 250,
-      backgroundColor: Colors.transparent,
-      elevation: 0,
-      flexibleSpace: FlexibleSpaceBar(
-        background: Stack(
-          children: [
-            // Main Image
-            Image.network(
-              kampanye.gambar,
-              width: double.infinity,
-              height: double.infinity,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) {
-                return Container(
-                  color: Colors.grey[200],
-                  child: const Center(
-                    child: Icon(
-                      Icons.image_not_supported_outlined,
-                      color: Colors.grey,
-                      size: 50,
-                    ),
-                  ),
-                );
-              },
-            ),
-            
-            // Gradient Overlay
-            Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.bottomCenter,
-                  end: Alignment.topCenter,
-                  colors: [
-                    Colors.black.withOpacity(0.6),
-                    Colors.transparent,
-                  ],
-                ),
+  return SliverAppBar(
+    expandedHeight: 250,
+    backgroundColor: Colors.transparent,
+    elevation: 0,
+    flexibleSpace: FlexibleSpaceBar(
+      background: Stack(
+        children: [
+          // Main Image dengan fallback ke gambar dummy
+          Container(
+            width: double.infinity,
+            height: double.infinity,
+            decoration: BoxDecoration(
+              image: DecorationImage(
+                image: _getKampanyeImage(kampanye.gambar),
+                fit: BoxFit.cover,
               ),
             ),
-            
-            // Progress Bar
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: LinearProgressIndicator(
-                value: kampanye.progress / 100,
-                backgroundColor: Colors.transparent,
-                color: Colors.white,
-                minHeight: 4,
+          ),
+          
+          // Gradient Overlay
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.bottomCenter,
+                end: Alignment.topCenter,
+                colors: [
+                  Colors.black.withOpacity(0.6),
+                  Colors.transparent,
+                ],
               ),
             ),
-          ],
-        ),
+          ),
+          
+          // Progress Bar
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: LinearProgressIndicator(
+              value: kampanye.progress / 100,
+              backgroundColor: Colors.transparent,
+              color: Colors.white,
+              minHeight: 4,
+            ),
+          ),
+        ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   SliverList _buildContent(KampanyeDonasi kampanye) {
     return SliverList(

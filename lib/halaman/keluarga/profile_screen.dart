@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import 'package:sahabatsenja_app/halaman/login_screen.dart'; // Import halaman login
 import 'package:sahabatsenja_app/models/user_profile_model.dart';
 import 'package:sahabatsenja_app/providers/user_profile_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -156,6 +157,63 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  // TAMBAHKAN METHOD LOGOUT
+  Future<void> _logout() async {
+    // Tampilkan dialog konfirmasi
+    bool confirm = await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.logout, color: Colors.redAccent),
+            SizedBox(width: 10),
+            Text('Konfirmasi Logout'),
+          ],
+        ),
+        content: const Text('Apakah Anda yakin ingin keluar dari aplikasi?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+            ),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Logout', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    ) ?? false;
+
+    if (confirm && mounted) {
+      setState(() => _isLoading = true);
+      
+      try {
+        // Bersihkan shared preferences
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.clear();
+        
+        // Navigasi ke login screen dan hapus semua halaman sebelumnya
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => const LoginScreen()),
+          (route) => false,
+        );
+      } catch (e) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error logout: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -209,9 +267,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 // Form profile (read-only atau editable)
                 _buildProfileForm(currentUser, provider),
                 
-                // Action buttons
+                // Action buttons (untuk edit mode)
                 if (_isEditMode)
                   _buildActionButtons(provider),
+                
+                // TAMBAHKAN TOMBOL LOGOUT
+                const SizedBox(height: 24),
+                _buildLogoutButton(),
+                const SizedBox(height: 40),
               ],
             ),
           );
@@ -284,7 +347,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
       child: Padding(
         padding: const EdgeInsets.all(20),
-        child: Container(width: double.infinity,
+        child: Container(
+          width: double.infinity,
           child: Column(
             children: [
               // Foto profil
@@ -628,6 +692,47 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // TAMBAHKAN WIDGET TOMBOL LOGOUT
+  Widget _buildLogoutButton() {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: InkWell(
+        onTap: _logout,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.red.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.red.withOpacity(0.2)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.logout,
+                color: Colors.red[700],
+                size: 24,
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Keluar dari Aplikasi',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.red[700],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

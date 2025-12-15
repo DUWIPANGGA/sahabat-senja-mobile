@@ -1,26 +1,45 @@
 // lib/services/jadwal_service.dart
-import 'package:sahabatsenja_app/services/api_service.dart';
 import 'package:sahabatsenja_app/models/jadwal_aktivitas_model.dart';
+import 'package:sahabatsenja_app/services/api_service.dart';
 
 class JadwalService {
   final ApiService _api = ApiService();
 
-  /// 📋 Ambil semua jadwal aktivitas
-  Future<List<JadwalAktivitas>> fetchJadwal() async {
-    try {
-      final response = await _api.get('jadwal');
+/// 📋 Ambil semua jadwal aktivitas
+Future<List<JadwalAktivitas>> fetchJadwal() async {
+  try {
+    final response = await _api.get('jadwal');
+    
+    // Debug: Cetak respons untuk melihat struktur data
+    print('📥 Response data: $response');
+    
+    if (response['status'] == 'success') {
+      final List<dynamic> data = response['data'];
       
-      if (response['status'] == 'success') {
-        final List<dynamic> data = response['data'];
-        return data.map((e) => JadwalAktivitas.fromJson(e)).toList();
-      } else {
-        throw Exception('Gagal fetch jadwal: ${response['message']}');
+      // Debug: Cetak setiap item untuk melihat struktur JSON
+      for (var i = 0; i < data.length; i++) {
+        print('📋 Item $i: ${data[i]}');
+        print('📋 Type of id: ${data[i]['id']?.runtimeType}');
+        print('📋 Type of completed: ${data[i]['completed']?.runtimeType}');
       }
-    } catch (e) {
-      print('⚠️ Error fetchJadwal: $e');
-      rethrow;
+      
+      try {
+        final jadwalList = data.map((e) => JadwalAktivitas.fromJson(e)).toList();
+        print('✅ Successfully parsed ${jadwalList.length} items');
+        return jadwalList;
+      } catch (e, stackTrace) {
+        print('❌ Parsing error: $e');
+        print('❌ Stack trace: $stackTrace');
+        throw Exception('Gagal parsing data: $e');
+      }
+    } else {
+      throw Exception('Gagal fetch jadwal: ${response['message']}');
     }
+  } catch (e) {
+    print('⚠️ Error fetchJadwal: $e');
+    rethrow;
   }
+}
 
   /// ➕ Tambah jadwal aktivitas
   Future<bool> tambahJadwal(JadwalAktivitas jadwal) async {

@@ -59,27 +59,46 @@ class JadwalAktivitas {
     );
   }
 
-  factory JadwalAktivitas.fromJson(Map<String, dynamic> json) {
-    return JadwalAktivitas(
-      id: json['id'] as int?,
-      namaAktivitas: json['nama_aktivitas'] ?? '',
-      jam: json['jam'] ?? '',
-      keterangan: json['keterangan'],
-      hari: json['hari'],
-      status: json['status'] ?? 'pending',
-      completed: json['completed'] ?? false,
-      datalansiaId: json['datalansia_id'] as int?,
-      userId: json['user_id'] as int?,
-      perawatId: json['perawat_id'] as int?,
-      createdAt: json['created_at'] != null 
-          ? DateTime.parse(json['created_at']) 
-          : null,
-      updatedAt: json['updated_at'] != null 
-          ? DateTime.parse(json['updated_at']) 
-          : null,
-    );
+factory JadwalAktivitas.fromJson(Map<String, dynamic> json) {
+  int? safeInt(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is String) {
+      try {
+        return int.tryParse(value);
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
   }
 
+  String? safeString(dynamic value) {
+    if (value == null) return null;
+    return value.toString();
+  }
+
+  return JadwalAktivitas(
+    id: safeInt(json['id']),
+    namaAktivitas: json['nama_aktivitas']?.toString() ?? '',
+    jam: json['jam']?.toString() ?? '',
+    keterangan: safeString(json['keterangan']),
+    hari: safeString(json['hari']),
+    status: json['status']?.toString() ?? 'pending',
+    completed: json['completed'] == true || 
+                json['completed'] == 1 || 
+                (json['completed'] is String && json['completed'] == '1'),
+    datalansiaId: safeInt(json['datalansia_id']),
+    userId: safeInt(json['user_id']),
+    perawatId: safeInt(json['perawat_id']),
+    createdAt: json['created_at'] != null 
+        ? DateTime.tryParse(json['created_at'].toString()) 
+        : null,
+    updatedAt: json['updated_at'] != null 
+        ? DateTime.tryParse(json['updated_at'].toString()) 
+        : null,
+  );
+}
   Map<String, dynamic> toJson() {
     return {
       'nama_aktivitas': namaAktivitas,

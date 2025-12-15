@@ -374,154 +374,177 @@ class _KampanyeListScreenState extends State<KampanyeListScreen> {
     );
   }
 
-  Widget _buildFeaturedCard(KampanyeDonasi kampanye,int index) {
-    return GestureDetector(
-      onTap: () => _navigateToDetail(kampanye),
-      child: Container(
-        width: 280,
-        margin: EdgeInsets.only(
-          left: 8,
-          right: index == _featuredKampanye.length - 1 ? 8 : 0,
-        ),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          image: DecorationImage(
-            image: NetworkImage(kampanye.gambar),
-            fit: BoxFit.cover,
-            colorFilter: ColorFilter.mode(
-              Colors.black.withOpacity(0.3),
-              BlendMode.darken,
-            ),
+  Widget _buildFeaturedCard(KampanyeDonasi kampanye, int index) {
+  return GestureDetector(
+    onTap: () => _navigateToDetail(kampanye),
+    child: Container(
+      width: double.infinity,
+      margin: EdgeInsets.only(
+        left: 8,
+        right: index == _featuredKampanye.length - 1 ? 8 : 0,
+      ),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        image: DecorationImage(
+          image: _getKampanyeImage(kampanye.gambar),
+          fit: BoxFit.cover,
+          colorFilter: ColorFilter.mode(
+            Colors.black.withOpacity(0.3),
+            BlendMode.darken,
           ),
         ),
-        child: Stack(
-          children: [
-            // Featured Badge
-            Positioned(
-              top: 12,
-              left: 12,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.amber,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.star, size: 12, color: Colors.white),
-                    SizedBox(width: 4),
-                    Text(
-                      'Unggulan',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            
-            // Content
-            Container(
-              padding: const EdgeInsets.all(16),
+      ),
+      child: Stack(
+        children: [
+          // Featured Badge
+          Positioned(
+            top: 12,
+            left: 12,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                gradient: LinearGradient(
-                  begin: Alignment.bottomCenter,
-                  end: Alignment.topCenter,
-                  colors: [
-                    Colors.black.withOpacity(0.8),
-                    Colors.transparent,
-                  ],
-                ),
+                color: Colors.amber,
+                borderRadius: BorderRadius.circular(12),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.end,
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
+                  Icon(Icons.star, size: 12, color: Colors.white),
+                  SizedBox(width: 4),
                   Text(
-                    kampanye.judul,
-                    style: const TextStyle(
+                    'Unggulan',
+                    style: TextStyle(
                       color: Colors.white,
-                      fontSize: 16,
+                      fontSize: 10,
                       fontWeight: FontWeight.bold,
                     ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 8),
-                  
-                  // Progress Bar
-                  LinearProgressIndicator(
-                    value: kampanye.progress / 100,
-                    backgroundColor: Colors.white.withOpacity(0.2),
-                    color: Colors.amber,
-                    minHeight: 6,
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                  const SizedBox(height: 6),
-                  
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '${kampanye.progress}% terkumpul',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          Text(
-                            kampanye.formattedDanaTerkumpul,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            kampanye.daysLeftText,
-                            style: TextStyle(
-                              color: kampanye.isExpired 
-                                  ? Colors.red[300]
-                                  : kampanye.isAlmostExpired
-                                      ? Colors.amber
-                                      : Colors.white,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          Text(
-                            '${kampanye.jumlahDonatur} donatur',
-                            style: const TextStyle(
-                              color: Colors.white70,
-                              fontSize: 11,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
                   ),
                 ],
               ),
             ),
-          ],
-        ),
+          ),
+          
+          // Content
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              gradient: LinearGradient(
+                begin: Alignment.bottomCenter,
+                end: Alignment.topCenter,
+                colors: [
+                  Colors.black.withOpacity(0.8),
+                  Colors.transparent,
+                ],
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Text(
+                  kampanye.judul,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 8),
+                
+                // Progress Bar
+                LinearProgressIndicator(
+                  value: kampanye.progress / 100,
+                  backgroundColor: Colors.white.withOpacity(0.2),
+                  color: Colors.amber,
+                  minHeight: 6,
+                  borderRadius: BorderRadius.circular(3),
+                ),
+                const SizedBox(height: 6),
+                
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${kampanye.progress}% terkumpul',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        Text(
+                          kampanye.formattedDanaTerkumpul,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          kampanye.daysLeftText,
+                          style: TextStyle(
+                            color: kampanye.isExpired 
+                                ? Colors.red[300]
+                                : kampanye.isAlmostExpired
+                                    ? Colors.amber
+                                    : Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        Text(
+                          '${kampanye.jumlahDonatur} donatur',
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
-    );
+    ),
+  );
+}
+
+// Helper function untuk mendapatkan gambar kampanye
+ImageProvider _getKampanyeImage(String? imageUrl) {
+  if (imageUrl == null || imageUrl.isEmpty) {
+    // Gunakan gambar dummy dari assets
+    return const AssetImage('assets/images/donasi.png');
   }
+  
+  // Cek apakah URL valid
+  try {
+    final uri = Uri.parse(imageUrl);
+    if (uri.isAbsolute && (uri.scheme == 'http' || uri.scheme == 'https')) {
+      return NetworkImage(imageUrl);
+    } else {
+      // URL tidak valid, gunakan gambar dummy
+      return const AssetImage('assets/images/donasi.png');
+    }
+  } catch (e) {
+    // Error parsing URL, gunakan gambar dummy
+    print('⚠️ Error parsing image URL: $e');
+    return const AssetImage('assets/images/donasi.png');
+  }
+}
 
   SliverToBoxAdapter _buildSearchSection() {
     return SliverToBoxAdapter(
@@ -680,28 +703,57 @@ class _KampanyeListScreenState extends State<KampanyeListScreen> {
             Stack(
               children: [
                 ClipRRect(
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(16),
-                    topRight: Radius.circular(16),
-                  ),
-                  child: Image.network(
-                    kampanye.gambar,
-                    height: 160,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
-                        height: 160,
-                        color: Colors.grey[200],
-                        child: const Icon(
-                          Icons.image_not_supported_outlined,
-                          color: Colors.grey,
-                          size: 50,
-                        ),
-                      );
-                    },
-                  ),
+  borderRadius: const BorderRadius.only(
+    topLeft: Radius.circular(16),
+    topRight: Radius.circular(16),
+  ),
+  child: Container(
+    height: 160,
+    width: double.infinity,
+    child: FadeInImage.assetNetwork(
+      placeholder: 'assets/images/donasi.png',
+      image: kampanye.gambar,
+      fit: BoxFit.cover,
+      imageErrorBuilder: (context, error, stackTrace) {
+        // If network image fails, show the dummy image
+        return Image.asset(
+          'assets/images/donasi.png',
+          fit: BoxFit.cover,
+          width: double.infinity,
+          height: 160,
+        );
+      },
+      placeholderErrorBuilder: (context, error, stackTrace) {
+        // If placeholder fails, show a colored container with icon
+        return Container(
+          height: 160,
+          color: Colors.grey[200],
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.campaign_outlined,
+                size: 50,
+                color: Colors.grey[400],
+              ),
+              SizedBox(height: 8),
+              Text(
+                kampanye.judul,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.grey[600],
+                  fontSize: 12,
                 ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        );
+      },
+    ),
+  ),
+),
                 
                 // Category Badge
                 Positioned(

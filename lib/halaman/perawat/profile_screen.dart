@@ -1,6 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'dart:io';
 import 'package:sahabatsenja_app/halaman/login_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -42,18 +43,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF4F4F4),
-      appBar: widget.showAppBar
-          ? AppBar(
-              title: const Text(
-                'Profil Perawat',
-                style: TextStyle(fontWeight: FontWeight.w600),
-              ),
-              centerTitle: true,
-              backgroundColor: const Color(0xFF9C6223),
-              foregroundColor: Colors.white,
-              elevation: 0,
-            )
-          : null,
+      // SELALU TAMPILKAN APPBAR - hapus kondisi widget.showAppBar
+      appBar: AppBar(
+        title: const Text(
+          'Profil Perawat',
+          style: TextStyle(fontWeight: FontWeight.w600),
+        ),
+        centerTitle: true,
+        backgroundColor: const Color(0xFF9C6223),
+        foregroundColor: Colors.white,
+        elevation: 0,
+        // Garis pemisah di bawah AppBar (optional)
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1.0),
+          child: Container(
+            height: 1.0,
+            color: Colors.white.withOpacity(0.3), // Garis putih transparan
+          ),
+        ),
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(

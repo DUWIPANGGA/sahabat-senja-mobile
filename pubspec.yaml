@@ -48,6 +48,7 @@ flutter:
     - assets/images/logo_login.png
     - assets/images/google.png
     - assets/images/home_gambar.jpeg
+    - assets/images/donasi.png
 fonts:
     - family: Poppins
       fonts:

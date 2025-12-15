@@ -31,9 +31,6 @@ class _HomePerawatScreenState extends State<HomePerawatScreen>
   Timer? _appPollingTimer;
   int _unreadCount = 0;
 
-  String _userName = "Bahdanov Semi";
-  String _userRole = "Perawat Senior";
-
   @override
   void initState() {
     super.initState();
@@ -192,7 +189,7 @@ class _HomePerawatScreenState extends State<HomePerawatScreen>
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
-      appBar: _buildAppBar(),
+      // HAPUS appBar: _buildAppBar(), DARI SINI
       body: _isRefreshing
           ? const Center(
               child: CircularProgressIndicator(color: Color(0xFF9C6223)),
@@ -204,44 +201,6 @@ class _HomePerawatScreenState extends State<HomePerawatScreen>
       bottomNavigationBar: _buildBottomNavigationBar(),
     );
   }
-
-  PreferredSizeWidget _buildAppBar() => AppBar(
-        backgroundColor: const Color(0xFF9C6223),
-        elevation: 0,
-        automaticallyImplyLeading: false,
-        title: const Text(
-          'Sahabat Senja',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-            fontSize: 20,
-          ),
-        ),
-        centerTitle: true,
-        // Garis pemisah di bawah AppBar
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(1.0),
-          child: Container(
-            height: 1.0,
-            color: Colors.white.withOpacity(0.3), // Garis putih transparan
-          ),
-        ),
-        actions: [
-          
-          Tooltip(
-            message: 'Notifikasi',
-            child: IconButton(
-              icon: _buildNotificationBadge(),
-              onPressed: () {
-                // Navigate ke chat screen atau notifikasi screen
-                setState(() {
-                  _selectedIndex = 1; // Navigate ke chat tab
-                });
-              },
-            ),
-          ),
-        ],
-      );
 
   Widget _buildNotificationBadge() {
     return Stack(
@@ -336,262 +295,200 @@ class _HomePerawatScreenState extends State<HomePerawatScreen>
   }
 
   Widget _buildDashboard() {
-    return RefreshIndicator(
-      onRefresh: _refreshContent,
-      color: const Color(0xFF9C6223),
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        child: Column(
-          children: [
-            // HEADER DENGAN BACKGROUND GAMBAR
-            Container(
-              width: double.infinity,
-              height: 200,
-              decoration: BoxDecoration(
-                borderRadius: const BorderRadius.only(
-                  bottomLeft: Radius.circular(30),
-                  bottomRight: Radius.circular(30),
-                ),
-                image: const DecorationImage(
-                  image: AssetImage('assets/images/home_gambar.jpeg'),
-                  fit: BoxFit.cover,
-                ),
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.black.withOpacity(0.4),
-                    Colors.black.withOpacity(0.7),
-                  ],
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.3),
-                    blurRadius: 15,
-                    offset: const Offset(0, 5),
-                  ),
-                ],
-              ),
-              child: Container(
-                padding: const EdgeInsets.fromLTRB(24, 40, 24, 24),
-                decoration: BoxDecoration(
-                  borderRadius: const BorderRadius.only(
-                    bottomLeft: Radius.circular(30),
-                    bottomRight: Radius.circular(30),
-                  ),
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.transparent,
-                      Colors.black.withOpacity(0.6),
-                    ],
-                  ),
-                ),
+    return Scaffold(
+      // TAMBAHKAN APPBAR DI SINI
+      appBar: _buildAppBar(),
+      body: RefreshIndicator(
+        onRefresh: _refreshContent,
+        color: const Color(0xFF9C6223),
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Column(
+            children: [
+              // HAPUS HEADER YANG LAMA (yang ada gambar) karena sudah ada di AppBar
+              const SizedBox(height: 20), // Beri sedikit jarak dari AppBar
+
+              // KONTEN UTAMA
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.end,
                   children: [
+                    // JUDUL MENU DENGAN ANIMASI
                     FadeTransition(
                       opacity: _fadeAnimation,
-                      child: const Text(
-                        'Selamat Datang,',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.white70,
-                          fontWeight: FontWeight.w300,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    ScaleTransition(
-                      scale: _scaleAnimation,
-                      child: const Text(
-                        'Sahabat Senja 👋',
-                        style: TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                          height: 1.1,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    FadeTransition(
-                      opacity: _fadeAnimation,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      child: const Row(
                         children: [
+                          Icon(Icons.dashboard, color: Color(0xFF9C6223), size: 20),
+                          SizedBox(width: 8),
                           Text(
-                            _userName,
-                            style: const TextStyle(
-                              fontSize: 18,
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          Text(
-                            _userRole,
-                            style: const TextStyle(
-                              fontSize: 14,
-                              color: Colors.white70,
+                            'Menu Perawat',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
                         ],
                       ),
                     ),
-                  ],
-                ),
-              ),
-            ),
+                    const SizedBox(height: 20),
 
-            const SizedBox(height: 24),
-
-            // KONTEN UTAMA
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Column(
-                children: [
-                  // JUDUL MENU DENGAN ANIMASI
-                  FadeTransition(
-                    opacity: _fadeAnimation,
-                    child: const Row(
+                    // GRID MENU DENGAN ANIMASI STAGGERED
+                    Column(
                       children: [
-                        Icon(Icons.dashboard, color: Color(0xFF9C6223), size: 20),
-                        SizedBox(width: 8),
-                        Text(
-                          'Menu Perawat',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black87,
+                        _buildMenuRow(0, [
+                          _buildMenuItem(
+                            Icons.elderly_outlined,
+                            'Data Lansia',
+                            const DataLansiaScreen(),
+                            0,
                           ),
-                        ),
+                          _buildMenuItem(
+                            Icons.favorite_outline,
+                            'Kondisi Lansia',
+                            const KondisiMainScreen(),
+                            1,
+                          ),
+                        ]),
+                        const SizedBox(height: 16),
+                        _buildMenuRow(1, [
+                          _buildMenuItem(
+                            Icons.event_note_outlined,
+                            'Jadwal Aktivitas',
+                            const JadwalPerawatScreen(),
+                            2,
+                          ),
+                          _buildMenuItem(
+                            Icons.local_hospital_outlined,
+                            'Jadwal Obat',
+                            const PilihLansiaJadwalObatScreen(),
+                            3,
+                          ),
+                        ]),
+                        const SizedBox(height: 16),
+                        _buildMenuRow(2, [
+                          _buildMenuItem(
+                            Icons.medication_outlined,
+                            'Tracking Obat',
+                            const TrackingObatScreen(),
+                            4,
+                          ),
+                          _buildMenuItem(
+                            Icons.assignment_outlined,
+                            'Laporan',
+                            const DataLansiaScreen(),
+                            5,
+                          ),
+                        ]),
                       ],
                     ),
-                  ),
-                  const SizedBox(height: 20),
 
-                  // GRID MENU DENGAN ANIMASI STAGGERED
-                  Column(
-                    children: [
-                      _buildMenuRow(0, [
-                        _buildMenuItem(
-                          Icons.elderly_outlined,
-                          'Data Lansia',
-                          const DataLansiaScreen(),
-                          0,
-                        ),
-                        _buildMenuItem(
-                          Icons.favorite_outline,
-                          'Kondisi Lansia',
-                          const KondisiMainScreen(),
-                          1,
-                        ),
-                      ]),
-                      const SizedBox(height: 16),
-                      _buildMenuRow(1, [
-                        _buildMenuItem(
-                          Icons.event_note_outlined,
-                          'Jadwal Aktivitas',
-                          const JadwalPerawatScreen(),
-                          2,
-                        ),
-                        _buildMenuItem(
-                          Icons.local_hospital_outlined,
-                          'Jadwal Obat',
-                          const PilihLansiaJadwalObatScreen(),
-                          3,
-                        ),
-                      ]),
-                      const SizedBox(height: 16),
-                      _buildMenuRow(2, [
-                        _buildMenuItem(
-                          Icons.medication_outlined,
-                          'Tracking Obat',
-                          const TrackingObatScreen(),
-                          4,
-                        ),
-                        _buildMenuItem(
-                          Icons.assignment_outlined,
-                          'Laporan',
-                          const DataLansiaScreen(),
-                          5,
-                        ),
-                      ]),
-                    ],
-                  ),
+                    const SizedBox(height: 30),
+                    
+                    // STATISTIK CHAT
+                    Consumer<ChatProvider>(
+                      builder: (context, chatProvider, child) {
+                        return _buildChatStatistics(chatProvider);
+                      },
+                    ),
 
-                  const SizedBox(height: 30),
-                  
-                  // STATISTIK CHAT
-                  Consumer<ChatProvider>(
-                    builder: (context, chatProvider, child) {
-                      return _buildChatStatistics(chatProvider);
-                    },
-                  ),
-
-                  const SizedBox(height: 30),
-                  
-                  // QUOTE INSPIRASI
-                  FadeTransition(
-                    opacity: _fadeAnimation,
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            const Color(0xFF9C6223).withOpacity(0.1),
-                            const Color(0xFF7A4E1C).withOpacity(0.05),
+                    const SizedBox(height: 30),
+                    
+                    // QUOTE INSPIRASI
+                    FadeTransition(
+                      opacity: _fadeAnimation,
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              const Color(0xFF9C6223).withOpacity(0.1),
+                              const Color(0xFF7A4E1C).withOpacity(0.05),
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: const Color(0xFF9C6223).withOpacity(0.2)),
+                        ),
+                        child: Column(
+                          children: [
+                            const Icon(
+                              Icons.health_and_safety,
+                              color: Color(0xFF9C6223),
+                              size: 32,
+                            ),
+                            const SizedBox(height: 12),
+                            const Text(
+                              '"Pelayanan terbaik untuk lansia adalah investasi kemanusiaan yang paling berharga"',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.black87,
+                                fontStyle: FontStyle.italic,
+                                height: 1.4,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              '- Sahabat Senja -',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey[600],
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
                           ],
                         ),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: const Color(0xFF9C6223).withOpacity(0.2)),
-                      ),
-                      child: Column(
-                        children: [
-                          const Icon(
-                            Icons.health_and_safety,
-                            color: Color(0xFF9C6223),
-                            size: 32,
-                          ),
-                          const SizedBox(height: 12),
-                          const Text(
-                            '"Pelayanan terbaik untuk lansia adalah investasi kemanusiaan yang paling berharga"',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.black87,
-                              fontStyle: FontStyle.italic,
-                              height: 1.4,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            '- Sahabat Senja -',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey[600],
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
                       ),
                     ),
-                  ),
 
-                  const SizedBox(height: 40),
-                ],
+                    const SizedBox(height: 40),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
+  PreferredSizeWidget _buildAppBar() => AppBar(
+        backgroundColor: const Color(0xFF9C6223),
+        elevation: 0,
+        automaticallyImplyLeading: false,
+        title: const Text(
+          'Sahabat Senja',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+            fontSize: 20,
+          ),
+        ),
+        centerTitle: true,
+        // Garis pemisah di bawah AppBar
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1.0),
+          child: Container(
+            height: 1.0,
+            color: Colors.white.withOpacity(0.3), // Garis putih transparan
+          ),
+        ),
+        actions: [
+          
+          Tooltip(
+            message: 'Notifikasi',
+            child: IconButton(
+              icon: _buildNotificationBadge(),
+              onPressed: () {
+                setState(() {
+                  _selectedIndex = 1; // Navigate ke chat tab
+                });
+              },
+            ),
+          ),
+        ],
+      );
 
   Widget _buildChatStatistics(ChatProvider chatProvider) {
     final conversations = chatProvider.conversations;
